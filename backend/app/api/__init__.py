@@ -11,6 +11,7 @@ from .ondemand import router as ondemand_router
 from .telegram import router as telegram_router
 from .content import router as content_router
 from .editorial import router as editorial_router
+from .agents import router as agents_router
 
 api_router = APIRouter()
 
@@ -25,5 +26,6 @@ api_router.include_router(ondemand_router, prefix="/on-demand", tags=["on-demand
 api_router.include_router(telegram_router, prefix="/telegram", tags=["telegram"])
 api_router.include_router(content_router, prefix="/content", tags=["content"])
 api_router.include_router(editorial_router, prefix="/editorial", tags=["editorial"])
+api_router.include_router(agents_router, prefix="/agents", tags=["agents"])
 
 __all__ = ["api_router"]

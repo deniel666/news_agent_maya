@@ -1,7 +1,12 @@
-"""Node functions for the Maya LangGraph pipeline."""
+"""Node functions for the Maya LangGraph pipeline.
+
+These nodes are registered with the AgentRegistry for dynamic configuration.
+Each node follows the pattern:
+    async def node_name(state: MayaState, config: AgentConfig) -> Dict[str, Any]
+"""
 
 import asyncio
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -12,18 +17,25 @@ from app.services.notification import get_notification_service
 from app.integrations.heygen import get_heygen_client
 from app.integrations.blotato import get_blotato_client, MAYA_HASHTAGS
 from .prompts import (
-    MAYA_PERSONA,
-    LOCAL_NEWS_PROMPT,
-    BUSINESS_NEWS_PROMPT,
-    AI_TECH_NEWS_PROMPT,
+    get_maya_persona,
+    get_local_news_prompt,
+    get_business_news_prompt,
+    get_ai_tech_news_prompt,
+    get_caption_prompt,
     CATEGORIZATION_PROMPT,
     RELEVANCE_PROMPT,
-    CAPTION_PROMPT,
 )
 from .state import MayaState
+from .config import AgentConfig, get_config_manager
+from .registry import agent, get_registry
 
 
-def get_llm():
+def get_llm(config: Optional[AgentConfig] = None) -> ChatOpenAI:
+    """Get LLM instance, optionally using agent config."""
+    if config and config.llm_config:
+        registry = get_registry()
+        return registry.get_llm(config.llm_config, cache_key=config.id)
+
     return ChatOpenAI(
         model=settings.openai_model,
         api_key=settings.openai_api_key,
@@ -31,12 +43,23 @@ def get_llm():
     )
 
 
-async def aggregate_news(state: MayaState) -> Dict[str, Any]:
-    """Aggregate news from all sources."""
+@agent("aggregate")
+async def aggregate_news(state: MayaState, config: AgentConfig = None) -> Dict[str, Any]:
+    """Aggregate news from all sources.
+
+    Config params:
+        - lookback_days: Number of days to look back (default: 7)
+        - sources: List of source types to use (default: all)
+    """
     aggregator = get_news_aggregator()
 
+    # Get config params
+    lookback_days = 7
+    if config and config.params:
+        lookback_days = config.params.get("lookback_days", 7)
+
     try:
-        articles = await aggregator.aggregate_all(days=7)
+        articles = await aggregator.aggregate_all(days=lookback_days)
 
         # Convert to dict format for state
         raw_articles = [
@@ -62,9 +85,20 @@ async def aggregate_news(state: MayaState) -> Dict[str, Any]:
         }
 
 
-async def deduplicate_articles(state: MayaState) -> Dict[str, Any]:
-    """Remove duplicate articles using semantic similarity."""
+@agent("deduplicate")
+async def deduplicate_articles(state: MayaState, config: AgentConfig = None) -> Dict[str, Any]:
+    """Remove duplicate articles using title similarity.
+
+    Config params:
+        - similarity_threshold: Minimum similarity to consider duplicate (default: 0.85)
+        - use_embeddings: Use semantic embeddings for dedup (default: False)
+    """
     articles = state["raw_articles"]
+
+    # Get config params
+    use_embeddings = False
+    if config and config.params:
+        use_embeddings = config.params.get("use_embeddings", False)
 
     # Simple deduplication by title similarity
     seen_titles = set()
@@ -82,16 +116,32 @@ async def deduplicate_articles(state: MayaState) -> Dict[str, Any]:
     return {"raw_articles": unique_articles}
 
 
-async def categorize_articles(state: MayaState) -> Dict[str, Any]:
-    """Categorize articles into local, business, and AI news."""
+@agent("categorize")
+async def categorize_articles(state: MayaState, config: AgentConfig = None) -> Dict[str, Any]:
+    """Categorize articles into local, business, and AI news.
+
+    Config params:
+        - categories: List of categories to use
+        - also_score_relevance: Score articles for relevance (default: True)
+    """
     articles = state["raw_articles"]
-    llm = get_llm()
+    llm = get_llm(config)
+
+    # Get limits from config
+    max_items = 50
+    max_per_category = 15
+    if config:
+        max_items = config.max_items or 50
+
+    # Get segments config for per-category limits
+    config_manager = get_config_manager()
+    segments = config_manager.list_enabled_segments()
 
     local_news = []
     business_news = []
     ai_news = []
 
-    for article in articles[:50]:  # Limit to top 50 for cost
+    for article in articles[:max_items]:
         try:
             prompt = CATEGORIZATION_PROMPT.replace(
                 "${title}", article.get("title") or ""
@@ -114,28 +164,42 @@ async def categorize_articles(state: MayaState) -> Dict[str, Any]:
             # Default to local if categorization fails
             local_news.append(article)
 
+    # Get per-segment limits
+    local_limit = next((s.max_articles for s in segments if s.id == "local"), 15)
+    business_limit = next((s.max_articles for s in segments if s.id == "business"), 15)
+    ai_limit = next((s.max_articles for s in segments if s.id == "ai_tech"), 15)
+
     return {
-        "local_news": local_news[:15],
-        "business_news": business_news[:15],
-        "ai_news": ai_news[:15],
+        "local_news": local_news[:local_limit],
+        "business_news": business_news[:business_limit],
+        "ai_news": ai_news[:ai_limit],
         "status": PipelineStatus.SYNTHESIZING,
     }
 
 
-async def synthesize_local(state: MayaState) -> Dict[str, Any]:
-    """Synthesize local and international news script."""
+@agent("synthesize_local")
+async def synthesize_local(state: MayaState, config: AgentConfig = None) -> Dict[str, Any]:
+    """Synthesize local and international news script.
+
+    Uses language_config from state for localized prompts.
+    """
     articles = state["local_news"]
-    llm = get_llm()
+    llm = get_llm(config)
+    language_config = state.get("language_config")
+
+    # Get max items from config
+    max_items = 10
+    if config:
+        max_items = config.max_items or 10
 
     # Format articles for prompt
     articles_text = "\n\n".join([
         f"**{a.get('title', 'Untitled')}** ({a.get('source_name', 'Unknown')})\n{a.get('content', '')[:400]}"
-        for a in articles[:10]
+        for a in articles[:max_items]
     ])
 
-    prompt = LOCAL_NEWS_PROMPT.replace(
-        "${MAYA_PERSONA}", MAYA_PERSONA
-    ).replace(
+    # Use language-aware prompt
+    prompt = get_local_news_prompt(language_config).replace(
         "${articles}", articles_text
     )
 
@@ -144,19 +208,26 @@ async def synthesize_local(state: MayaState) -> Dict[str, Any]:
     return {"local_script": response.content}
 
 
-async def synthesize_business(state: MayaState) -> Dict[str, Any]:
-    """Synthesize business news script."""
+@agent("synthesize_business")
+async def synthesize_business(state: MayaState, config: AgentConfig = None) -> Dict[str, Any]:
+    """Synthesize business news script.
+
+    Uses language_config from state for localized prompts.
+    """
     articles = state["business_news"]
-    llm = get_llm()
+    llm = get_llm(config)
+    language_config = state.get("language_config")
+
+    max_items = 10
+    if config:
+        max_items = config.max_items or 10
 
     articles_text = "\n\n".join([
         f"**{a.get('title', 'Untitled')}** ({a.get('source_name', 'Unknown')})\n{a.get('content', '')[:400]}"
-        for a in articles[:10]
+        for a in articles[:max_items]
     ])
 
-    prompt = BUSINESS_NEWS_PROMPT.replace(
-        "${MAYA_PERSONA}", MAYA_PERSONA
-    ).replace(
+    prompt = get_business_news_prompt(language_config).replace(
         "${articles}", articles_text
     )
 
@@ -165,19 +236,26 @@ async def synthesize_business(state: MayaState) -> Dict[str, Any]:
     return {"business_script": response.content}
 
 
-async def synthesize_ai(state: MayaState) -> Dict[str, Any]:
-    """Synthesize AI and tech news script."""
+@agent("synthesize_ai")
+async def synthesize_ai(state: MayaState, config: AgentConfig = None) -> Dict[str, Any]:
+    """Synthesize AI and tech news script.
+
+    Uses language_config from state for localized prompts.
+    """
     articles = state["ai_news"]
-    llm = get_llm()
+    llm = get_llm(config)
+    language_config = state.get("language_config")
+
+    max_items = 10
+    if config:
+        max_items = config.max_items or 10
 
     articles_text = "\n\n".join([
         f"**{a.get('title', 'Untitled')}** ({a.get('source_name', 'Unknown')})\n{a.get('content', '')[:400]}"
-        for a in articles[:10]
+        for a in articles[:max_items]
     ])
 
-    prompt = AI_TECH_NEWS_PROMPT.replace(
-        "${MAYA_PERSONA}", MAYA_PERSONA
-    ).replace(
+    prompt = get_ai_tech_news_prompt(language_config).replace(
         "${articles}", articles_text
     )
 
@@ -186,31 +264,43 @@ async def synthesize_ai(state: MayaState) -> Dict[str, Any]:
     return {"ai_script": response.content}
 
 
-async def generate_scripts(state: MayaState) -> Dict[str, Any]:
-    """Combine individual scripts into full script."""
+@agent("generate_scripts")
+async def generate_scripts(state: MayaState, config: AgentConfig = None) -> Dict[str, Any]:
+    """Combine individual scripts into full script with intro/outro."""
     local = state.get("local_script", "")
     business = state.get("business_script", "")
     ai = state.get("ai_script", "")
+    language_config = state.get("language_config")
+
+    # Get enabled segments in order
+    config_manager = get_config_manager()
+    segments = config_manager.list_enabled_segments()
+
+    # Build script sections based on enabled segments
+    sections = []
+    for segment in segments:
+        if segment.id == "local" and local:
+            sections.append(f"[LOCAL & INTERNATIONAL NEWS]\n{local}")
+        elif segment.id == "business" and business:
+            sections.append(f"[BUSINESS NEWS]\n{business}")
+        elif segment.id == "ai_tech" and ai:
+            sections.append(f"[AI & TECH NEWS]\n{ai}")
+
+    # Construct full script
+    script_body = "\n\n".join(sections)
 
     full_script = f"""[INTRO]
-Good evening, everyone! I'm Maya, and welcome to your weekly news roundup. Let's dive into what happened this week across Southeast Asia and beyond.
+Good evening, everyone! I'm Maya, and welcome to your weekly news roundup. Let's dive into what matters for your business this week.
 
-[LOCAL & INTERNATIONAL NEWS]
-{local}
-
-[BUSINESS NEWS]
-{business}
-
-[AI & TECH NEWS]
-{ai}
+{script_body}
 
 [OUTRO]
-And that's your weekly roundup! Thanks for watching. I'm Maya, and I'll see you next week. Stay informed, stay curious!
+And that's your weekly roundup! Thanks for watching. I'm Maya, and I'll see you next week. Stay informed, stay ahead!
 """
 
-    # Generate caption
-    llm = get_llm()
-    caption_prompt = CAPTION_PROMPT.replace(
+    # Generate caption using language-aware prompt
+    llm = get_llm(config)
+    caption_prompt = get_caption_prompt(language_config).replace(
         "${local_summary}", local[:200] if local else "Local news"
     ).replace(
         "${business_summary}", business[:200] if business else "Business updates"
@@ -231,9 +321,20 @@ And that's your weekly roundup! Thanks for watching. I'm Maya, and I'll see you 
     }
 
 
-async def script_approval_gate(state: MayaState) -> Dict[str, Any]:
-    """Human approval gate for scripts."""
+@agent("script_approval")
+async def script_approval_gate(state: MayaState, config: AgentConfig = None) -> Dict[str, Any]:
+    """Human approval gate for scripts.
+
+    Config params:
+        - notification_channels: List of channels to notify (slack, telegram)
+        - auto_approve_after_hours: Auto-approve after N hours (None = never)
+    """
     notification = get_notification_service()
+
+    # Get notification channels from config
+    channels = ["slack", "telegram"]
+    if config and config.params:
+        channels = config.params.get("notification_channels", channels)
 
     # Send notification
     await notification.send_script_approval_request(
@@ -252,21 +353,46 @@ async def script_approval_gate(state: MayaState) -> Dict[str, Any]:
     return {"status": PipelineStatus.AWAITING_SCRIPT_APPROVAL}
 
 
-async def generate_video(state: MayaState) -> Dict[str, Any]:
-    """Generate video using HeyGen."""
+@agent("generate_video")
+async def generate_video(state: MayaState, config: AgentConfig = None) -> Dict[str, Any]:
+    """Generate video using HeyGen.
+
+    Config params:
+        - aspect_ratio: Video aspect ratio (default: "9:16")
+        - background_color: Background color (default: "#1a1a2e")
+        - max_wait_seconds: Max wait for generation (default: 600)
+    """
     heygen = get_heygen_client()
 
+    # Get video params from config
+    aspect_ratio = "9:16"
+    background_color = "#1a1a2e"
+    max_wait_seconds = 600
+
+    if config and config.params:
+        aspect_ratio = config.params.get("aspect_ratio", aspect_ratio)
+        background_color = config.params.get("background_color", background_color)
+        max_wait_seconds = config.params.get("max_wait_seconds", max_wait_seconds)
+
+    # Get language-specific locale for voice
+    language_config = state.get("language_config", {})
+    locale = language_config.get("heygen_locale", "en-SG")
+    speed = language_config.get("speech_speed", 1.0)
+
     try:
-        # Generate video
+        # Generate video with locale
         result = await heygen.generate_video(
             script=state["full_script"],
-            aspect_ratio="9:16",  # Vertical for social
+            aspect_ratio=aspect_ratio,
+            background_color=background_color,
+            locale=locale,
+            speed=speed,
         )
 
         video_id = result["video_id"]
 
         # Wait for video completion
-        status = await heygen.wait_for_video(video_id, timeout_seconds=600)
+        status = await heygen.wait_for_video(video_id, timeout_seconds=max_wait_seconds)
 
         return {
             "heygen_video_id": video_id,
@@ -281,8 +407,13 @@ async def generate_video(state: MayaState) -> Dict[str, Any]:
         }
 
 
-async def video_approval_gate(state: MayaState) -> Dict[str, Any]:
-    """Human approval gate for video."""
+@agent("video_approval")
+async def video_approval_gate(state: MayaState, config: AgentConfig = None) -> Dict[str, Any]:
+    """Human approval gate for video.
+
+    Config params:
+        - notification_channels: List of channels to notify
+    """
     notification = get_notification_service()
 
     # Send notification
@@ -295,15 +426,26 @@ async def video_approval_gate(state: MayaState) -> Dict[str, Any]:
     return {"status": PipelineStatus.AWAITING_VIDEO_APPROVAL}
 
 
-async def publish_to_social(state: MayaState) -> Dict[str, Any]:
-    """Publish video to social media platforms via Blotato."""
+@agent("publish")
+async def publish_to_social(state: MayaState, config: AgentConfig = None) -> Dict[str, Any]:
+    """Publish video to social media platforms via Blotato.
+
+    Config params:
+        - platforms: List of platforms to publish to
+        - schedule_delay_minutes: Delay before publishing (0 = immediate)
+    """
     blotato = get_blotato_client()
+
+    # Get platforms from config
+    platforms = ["instagram", "tiktok", "youtube", "linkedin"]
+    if config and config.params:
+        platforms = config.params.get("platforms", platforms)
 
     try:
         results = await blotato.schedule_multi_platform(
             video_url=state["video_url"],
             caption=state["caption"],
-            platforms=["instagram", "tiktok", "youtube", "linkedin"],
+            platforms=platforms,
             hashtags=MAYA_HASHTAGS,
         )
 
