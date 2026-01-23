@@ -1,7 +1,7 @@
 """Editorial Pipeline - Integrates news aggregation with editorial review system."""
 
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 from uuid import UUID
 
@@ -280,7 +280,7 @@ class EditorialPipelineService:
             review_data = {
                 "week_number": week_number,
                 "year": year,
-                "review_period_start": (now - datetime.timedelta(days=7)).isoformat(),
+                "review_period_start": (now - timedelta(days=7)).isoformat(),
                 "review_period_end": now.isoformat(),
                 "status": "completed",
                 "total_stories_reviewed": len(stories),

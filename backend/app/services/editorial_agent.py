@@ -41,7 +41,7 @@ class EditorialAgent:
         self.llm = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0.3,
-            api_key=settings.OPENAI_API_KEY,
+            api_key=settings.openai_api_key,
         )
         self.workflow = self._build_workflow()
 
