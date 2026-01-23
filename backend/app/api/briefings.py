@@ -1,6 +1,6 @@
 """API endpoints for weekly briefings."""
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from typing import Optional, List
 from datetime import date
 from uuid import UUID
@@ -12,6 +12,11 @@ from app.models.schemas import (
 )
 from app.services.database import get_db_service
 from app.agents.pipeline import get_pipeline
+from app.core.languages import (
+    SUPPORTED_LANGUAGES,
+    DEFAULT_LANGUAGE,
+    get_language_config,
+)
 
 router = APIRouter()
 
@@ -21,36 +26,53 @@ async def create_briefing(
     background_tasks: BackgroundTasks,
     week_number: Optional[int] = None,
     year: Optional[int] = None,
+    language_code: str = Query(
+        default=DEFAULT_LANGUAGE,
+        description="Language code for the briefing (e.g., 'en-SG', 'ms-MY', 'en-MY')"
+    ),
 ):
     """Create and start a new weekly briefing pipeline."""
+    # Validate language code
+    if language_code not in SUPPORTED_LANGUAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported language: {language_code}. Supported: {list(SUPPORTED_LANGUAGES)}"
+        )
+
     today = date.today()
     week_number = week_number or today.isocalendar()[1]
     year = year or today.year
 
-    # Check if briefing already exists
+    # Check if briefing already exists for this language
     db = get_db_service()
-    existing = await db.get_briefing_by_week(year, week_number)
+    existing = await db.get_briefing_by_week(year, week_number, language_code)
     if existing:
         raise HTTPException(
             status_code=400,
-            detail=f"Briefing for week {week_number}, {year} already exists"
+            detail=f"Briefing for week {week_number}, {year} ({language_code}) already exists"
         )
+
+    # Get language config for response
+    lang_config = get_language_config(language_code)
 
     # Start pipeline in background
     pipeline = get_pipeline()
 
     async def run_pipeline():
-        await pipeline.start_briefing(week_number, year)
+        await pipeline.start_briefing(week_number, year, language_code)
 
     background_tasks.add_task(run_pipeline)
 
-    thread_id = f"{year}-W{week_number:02d}"
+    thread_id = f"{year}-W{week_number:02d}-{language_code}"
 
     return {
         "message": "Briefing pipeline started",
         "thread_id": thread_id,
         "week_number": week_number,
         "year": year,
+        "language_code": language_code,
+        "language_name": lang_config.get("name"),
+        "requires_external_review": lang_config.get("requires_external_review", False),
     }
 
 
@@ -176,3 +198,24 @@ async def delete_briefing(thread_id: str):
     )
 
     return {"message": "Briefing cancelled"}
+
+
+@router.get("/languages/available", response_model=dict)
+async def list_available_languages():
+    """List all available languages for briefings."""
+    from app.core.languages import LANGUAGE_CONFIGS, TARGET_AUDIENCE
+
+    languages = []
+    for code, config in LANGUAGE_CONFIGS.items():
+        languages.append({
+            "code": code,
+            "name": config["name"],
+            "locale": config["locale"],
+            "requires_external_review": config.get("requires_external_review", False),
+        })
+
+    return {
+        "default_language": DEFAULT_LANGUAGE,
+        "target_audience": TARGET_AUDIENCE,
+        "languages": languages,
+    }

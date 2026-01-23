@@ -450,3 +450,77 @@ SELECT
     (SELECT COALESCE(AVG(score), 0) FROM raw_stories WHERE score IS NOT NULL) as average_score,
     (SELECT COUNT(*) FROM editorial_reviews) as total_reviews,
     (SELECT MAX(completed_at) FROM editorial_reviews WHERE status = 'completed') as latest_review_date;
+
+-- ==================
+-- Language Support
+-- ==================
+
+-- Add language columns to weekly_briefings
+ALTER TABLE weekly_briefings ADD COLUMN IF NOT EXISTS language_code VARCHAR(10) DEFAULT 'en-SG';
+ALTER TABLE weekly_briefings ADD COLUMN IF NOT EXISTS requires_external_review BOOLEAN DEFAULT FALSE;
+
+-- Index for language filtering
+CREATE INDEX IF NOT EXISTS idx_briefings_language ON weekly_briefings(language_code);
+
+-- Video localizations - track multi-language versions of the same content
+CREATE TABLE IF NOT EXISTS video_localizations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    briefing_id UUID REFERENCES weekly_briefings(id) ON DELETE CASCADE,
+    language_code VARCHAR(10) NOT NULL,
+
+    -- Content
+    script TEXT,
+    video_url VARCHAR(2000),
+    heygen_video_id VARCHAR(100),
+    duration_seconds INTEGER,
+
+    -- Status
+    status VARCHAR(20) DEFAULT 'draft',  -- draft, script_ready, generating, ready, published
+
+    -- Review tracking (for non-English content)
+    requires_review BOOLEAN DEFAULT FALSE,
+    reviewed_by VARCHAR(100),
+    reviewed_at TIMESTAMPTZ,
+    review_notes TEXT,
+
+    -- Timestamps
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ,
+
+    -- Each briefing can only have one version per language
+    UNIQUE(briefing_id, language_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_localizations_briefing ON video_localizations(briefing_id);
+CREATE INDEX IF NOT EXISTS idx_localizations_language ON video_localizations(language_code);
+CREATE INDEX IF NOT EXISTS idx_localizations_status ON video_localizations(status);
+
+-- Trigger for updated_at on video_localizations
+CREATE TRIGGER video_localizations_updated_at
+    BEFORE UPDATE ON video_localizations
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();
+
+-- ==================
+-- Language Stats View
+-- ==================
+
+CREATE OR REPLACE VIEW language_stats AS
+SELECT
+    language_code,
+    COUNT(*) as total_briefings,
+    COUNT(*) FILTER (WHERE status = 'completed') as completed_briefings,
+    COUNT(*) FILTER (WHERE requires_external_review = true) as requires_review
+FROM weekly_briefings
+GROUP BY language_code;
+
+-- Localization stats view
+CREATE OR REPLACE VIEW localization_stats AS
+SELECT
+    language_code,
+    COUNT(*) as total_localizations,
+    COUNT(*) FILTER (WHERE status = 'ready') as ready_localizations,
+    COUNT(*) FILTER (WHERE status = 'published') as published_localizations,
+    COUNT(*) FILTER (WHERE requires_review = true AND reviewed_at IS NULL) as pending_review
+FROM video_localizations
+GROUP BY language_code;

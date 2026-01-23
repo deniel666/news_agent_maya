@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     heygen_api_key: str = ""
     maya_avatar_id: str = ""
     maya_voice_id: str = ""
+    maya_voice_locale: str = "en-SG"
+
+    # Language & Localization
+    default_language: str = "en-SG"
+    malay_reviewer_webhook: Optional[str] = None  # Slack/Telegram for Malay content review
 
     # Blotato
     blotato_api_key: str = ""

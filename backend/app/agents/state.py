@@ -1,10 +1,11 @@
 """State definitions for the Maya LangGraph pipeline."""
 
-from typing import TypedDict, List, Optional, Annotated
+from typing import TypedDict, List, Optional, Annotated, Dict, Any
 from datetime import datetime
 import operator
 
 from app.models.schemas import NewsArticle, PipelineStatus
+from app.core.languages import get_language_config, DEFAULT_LANGUAGE
 
 
 def merge_articles(left: List[dict], right: List[dict]) -> List[dict]:
@@ -26,6 +27,11 @@ class MayaState(TypedDict):
     week_number: int
     year: int
     thread_id: str
+
+    # Language Support
+    language_code: str
+    language_config: Dict[str, Any]
+    requires_external_review: bool
 
     # Aggregation
     raw_articles: Annotated[List[dict], merge_articles]
@@ -60,29 +66,55 @@ class MayaState(TypedDict):
     video_approved: Optional[bool]
 
 
-def create_initial_state(week_number: int, year: int) -> MayaState:
-    """Create initial state for a new pipeline run."""
+def create_initial_state(
+    week_number: int,
+    year: int,
+    language_code: str = DEFAULT_LANGUAGE
+) -> MayaState:
+    """Create initial state for a new pipeline run.
+
+    Args:
+        week_number: Week number of the year
+        year: Year
+        language_code: Language code (e.g., 'en-SG', 'ms-MY')
+
+    Returns:
+        Initial MayaState with language configuration
+    """
     thread_id = f"{year}-W{week_number:02d}"
+
+    # Get language configuration
+    lang_config = get_language_config(language_code)
 
     return MayaState(
         week_number=week_number,
         year=year,
         thread_id=thread_id,
+        # Language
+        language_code=language_code,
+        language_config=lang_config,
+        requires_external_review=lang_config.get("requires_external_review", False),
+        # Articles
         raw_articles=[],
         local_news=[],
         business_news=[],
         ai_news=[],
+        # Scripts
         local_script=None,
         business_script=None,
         ai_script=None,
         full_script=None,
+        # Video
         heygen_video_id=None,
         video_url=None,
         video_duration=None,
+        # Publishing
         caption=None,
         post_results=None,
+        # Control
         status=PipelineStatus.AGGREGATING,
         error=None,
+        # Approvals
         script_approved=None,
         script_feedback=None,
         video_approved=None,
