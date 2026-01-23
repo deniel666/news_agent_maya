@@ -292,3 +292,161 @@ SELECT
     (SELECT COUNT(*) FROM publish_records WHERE status = 'published') as total_published,
     (SELECT COUNT(*) FROM stories WHERE created_at >= NOW() - INTERVAL '7 days') as this_week,
     (SELECT COUNT(*) FROM stories WHERE created_at >= NOW() - INTERVAL '30 days') as this_month;
+
+-- ==================
+-- Editorial System - Brand Profile
+-- ==================
+
+CREATE TABLE IF NOT EXISTS brand_profile (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(200) NOT NULL,
+    tagline VARCHAR(500),
+
+    -- Brand identity
+    mission TEXT NOT NULL,
+    vision TEXT NOT NULL,
+    values JSONB DEFAULT '[]',
+
+    -- Content strategy
+    target_audience TEXT NOT NULL,
+    tone_of_voice TEXT NOT NULL,
+    content_pillars JSONB DEFAULT '[]',
+
+    -- Positioning
+    differentiators JSONB DEFAULT '[]',
+    competitors JSONB DEFAULT '[]',
+
+    -- AI context
+    ai_prompt_context TEXT,
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ
+);
+
+-- ==================
+-- Editorial System - Guidelines
+-- ==================
+
+CREATE TABLE IF NOT EXISTS editorial_guidelines (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(200) NOT NULL,
+    category VARCHAR(50) NOT NULL,  -- brand_voice, topic_priority, topic_avoid, audience, quality, timeliness, regional
+    description TEXT NOT NULL,
+    criteria TEXT NOT NULL,         -- Detailed criteria for AI evaluation
+    weight DECIMAL(3,2) DEFAULT 1.0,  -- 0.1 to 2.0
+    enabled BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_guidelines_category ON editorial_guidelines(category);
+CREATE INDEX IF NOT EXISTS idx_guidelines_enabled ON editorial_guidelines(enabled);
+
+-- ==================
+-- Editorial System - Raw Stories
+-- ==================
+
+CREATE TABLE IF NOT EXISTS raw_stories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(1000) NOT NULL,
+    content_markdown TEXT NOT NULL,
+    summary TEXT,
+    source_name VARCHAR(200) NOT NULL,
+    source_type VARCHAR(50) NOT NULL,  -- rss, telegram, twitter
+    source_url VARCHAR(2000),
+    original_url VARCHAR(2000),
+
+    -- Media
+    media_urls JSONB DEFAULT '[]',
+
+    -- Metadata
+    category VARCHAR(50),
+    author VARCHAR(200),
+    tags JSONB DEFAULT '[]',
+    published_at TIMESTAMPTZ,
+
+    -- Status & Ranking
+    status VARCHAR(50) DEFAULT 'pending',  -- pending, reviewing, ranked, promoted, archived
+    rank VARCHAR(50),                       -- top_priority, high, medium, low, rejected
+    score DECIMAL(5,2),                     -- 0.00 to 100.00
+    rank_reason TEXT,
+
+    -- Relationships
+    promoted_story_id UUID REFERENCES stories(id) ON DELETE SET NULL,
+    editorial_review_id UUID,  -- Will reference editorial_reviews
+
+    -- Timestamps
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    reviewed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_raw_stories_status ON raw_stories(status);
+CREATE INDEX IF NOT EXISTS idx_raw_stories_rank ON raw_stories(rank);
+CREATE INDEX IF NOT EXISTS idx_raw_stories_score ON raw_stories(score DESC);
+CREATE INDEX IF NOT EXISTS idx_raw_stories_category ON raw_stories(category);
+CREATE INDEX IF NOT EXISTS idx_raw_stories_created ON raw_stories(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_raw_stories_source ON raw_stories(source_type, source_name);
+
+-- ==================
+-- Editorial System - Reviews
+-- ==================
+
+CREATE TABLE IF NOT EXISTS editorial_reviews (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    week_number INTEGER NOT NULL,
+    year INTEGER NOT NULL,
+    review_period_start TIMESTAMPTZ NOT NULL,
+    review_period_end TIMESTAMPTZ NOT NULL,
+
+    -- Status
+    status VARCHAR(50) DEFAULT 'in_progress',  -- in_progress, completed, failed
+
+    -- Counts
+    total_stories_reviewed INTEGER DEFAULT 0,
+    top_priority_count INTEGER DEFAULT 0,
+    high_count INTEGER DEFAULT 0,
+    medium_count INTEGER DEFAULT 0,
+    low_count INTEGER DEFAULT 0,
+    rejected_count INTEGER DEFAULT 0,
+
+    -- AI-generated content
+    executive_summary TEXT,
+    key_themes JSONB DEFAULT '[]',
+    recommendations JSONB DEFAULT '[]',  -- Array of story recommendations
+    editorial_notes TEXT,
+
+    -- Timestamps
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,
+
+    UNIQUE(year, week_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_reviews_status ON editorial_reviews(status);
+CREATE INDEX IF NOT EXISTS idx_reviews_year_week ON editorial_reviews(year, week_number);
+
+-- Add foreign key for raw_stories after editorial_reviews is created
+ALTER TABLE raw_stories
+    ADD CONSTRAINT fk_raw_stories_review
+    FOREIGN KEY (editorial_review_id)
+    REFERENCES editorial_reviews(id)
+    ON DELETE SET NULL;
+
+-- ==================
+-- Editorial Stats View
+-- ==================
+
+CREATE OR REPLACE VIEW editorial_stats AS
+SELECT
+    (SELECT COUNT(*) FROM raw_stories) as total_raw_stories,
+    (SELECT COUNT(*) FROM raw_stories WHERE status = 'pending') as pending_review,
+    (SELECT COUNT(*) FROM raw_stories WHERE reviewed_at >= NOW() - INTERVAL '7 days') as reviewed_this_week,
+    (SELECT COUNT(*) FROM raw_stories WHERE status = 'promoted' AND reviewed_at >= NOW() - INTERVAL '7 days') as promoted_this_week,
+    (SELECT COUNT(*) FROM raw_stories WHERE rank = 'top_priority') as top_priority_stories,
+    (SELECT COUNT(*) FROM raw_stories WHERE rank = 'high') as high_stories,
+    (SELECT COUNT(*) FROM raw_stories WHERE rank = 'medium') as medium_stories,
+    (SELECT COUNT(*) FROM raw_stories WHERE rank = 'low') as low_stories,
+    (SELECT COUNT(*) FROM raw_stories WHERE rank = 'rejected') as rejected_stories,
+    (SELECT COALESCE(AVG(score), 0) FROM raw_stories WHERE score IS NOT NULL) as average_score,
+    (SELECT COUNT(*) FROM editorial_reviews) as total_reviews,
+    (SELECT MAX(completed_at) FROM editorial_reviews WHERE status = 'completed') as latest_review_date;

@@ -543,4 +543,288 @@ export async function updatePublishRecord(
   return data
 }
 
+// ==================
+// Editorial System
+// ==================
+
+export interface EditorialStats {
+  total_raw_stories: number
+  pending_review: number
+  reviewed_this_week: number
+  promoted_this_week: number
+  top_priority_stories: number
+  high_stories: number
+  medium_stories: number
+  low_stories: number
+  rejected_stories: number
+  average_score: number
+  total_reviews: number
+  latest_review_date: string | null
+}
+
+export interface BrandProfile {
+  id: string
+  name: string
+  tagline: string | null
+  mission: string
+  vision: string
+  values: string[]
+  target_audience: string
+  tone_of_voice: string
+  content_pillars: string[]
+  differentiators: string[]
+  competitors: string[]
+  ai_prompt_context: string | null
+  created_at: string
+  updated_at: string | null
+}
+
+export interface EditorialGuideline {
+  id: string
+  name: string
+  category: string
+  description: string
+  criteria: string
+  weight: number
+  enabled: boolean
+  created_at: string
+  updated_at: string | null
+}
+
+export interface RawStory {
+  id: string
+  title: string
+  content_markdown: string
+  summary: string | null
+  source_name: string
+  source_type: string
+  source_url: string | null
+  original_url: string | null
+  media_urls: string[]
+  category: string | null
+  author: string | null
+  tags: string[]
+  published_at: string | null
+  status: string
+  rank: string | null
+  score: number | null
+  rank_reason: string | null
+  promoted_story_id: string | null
+  editorial_review_id: string | null
+  created_at: string
+  reviewed_at: string | null
+}
+
+export interface EditorialReview {
+  id: string
+  week_number: number
+  year: number
+  review_period_start: string
+  review_period_end: string
+  status: string
+  total_stories_reviewed: number
+  top_priority_count: number
+  high_count: number
+  medium_count: number
+  low_count: number
+  rejected_count: number
+  executive_summary: string | null
+  key_themes: string[]
+  recommendations: any[]
+  editorial_notes: string | null
+  created_at: string
+  completed_at: string | null
+}
+
+// Brand Profile
+export async function getBrandProfile(): Promise<BrandProfile | null> {
+  const { data } = await api.get('/editorial/brand-profile')
+  return data
+}
+
+export async function updateBrandProfile(profile: {
+  name: string
+  tagline?: string
+  mission: string
+  vision: string
+  values: string[]
+  target_audience: string
+  tone_of_voice: string
+  content_pillars: string[]
+  differentiators?: string[]
+  competitors?: string[]
+  ai_prompt_context?: string
+}) {
+  const { data } = await api.post('/editorial/brand-profile', profile)
+  return data
+}
+
+// Guidelines
+export async function listGuidelines(
+  category?: string,
+  enabled?: boolean
+): Promise<EditorialGuideline[]> {
+  const { data } = await api.get('/editorial/guidelines', {
+    params: { category, enabled },
+  })
+  return data
+}
+
+export async function createGuideline(guideline: {
+  name: string
+  category: string
+  description: string
+  criteria: string
+  weight?: number
+  enabled?: boolean
+}) {
+  const { data } = await api.post('/editorial/guidelines', guideline)
+  return data
+}
+
+export async function updateGuideline(
+  guidelineId: string,
+  update: {
+    name?: string
+    description?: string
+    criteria?: string
+    weight?: number
+    enabled?: boolean
+  }
+) {
+  const { data } = await api.patch(`/editorial/guidelines/${guidelineId}`, update)
+  return data
+}
+
+export async function deleteGuideline(guidelineId: string) {
+  const { data } = await api.delete(`/editorial/guidelines/${guidelineId}`)
+  return data
+}
+
+export async function toggleGuideline(guidelineId: string) {
+  const { data } = await api.post(`/editorial/guidelines/${guidelineId}/toggle`)
+  return data
+}
+
+export async function importDefaultGuidelines() {
+  const { data } = await api.post('/editorial/guidelines/import/defaults')
+  return data
+}
+
+export async function getGuidelineCategories() {
+  const { data } = await api.get('/editorial/categories')
+  return data
+}
+
+// Raw Stories
+export async function listRawStories(params?: {
+  status?: string
+  rank?: string
+  category?: string
+  source_type?: string
+  min_score?: number
+  limit?: number
+  offset?: number
+  sort_by?: string
+}): Promise<RawStory[]> {
+  const { data } = await api.get('/editorial/raw-stories', { params })
+  return data
+}
+
+export async function createRawStory(story: {
+  title: string
+  content_markdown: string
+  summary?: string
+  source_name: string
+  source_type: string
+  source_url?: string
+  original_url?: string
+  media_urls?: string[]
+  category?: string
+  author?: string
+  tags?: string[]
+  published_at?: string
+}) {
+  const { data } = await api.post('/editorial/raw-stories', story)
+  return data
+}
+
+export async function getRawStory(storyId: string): Promise<RawStory> {
+  const { data } = await api.get(`/editorial/raw-stories/${storyId}`)
+  return data
+}
+
+export async function scoreRawStory(storyId: string) {
+  const { data } = await api.post(`/editorial/raw-stories/${storyId}/score`)
+  return data
+}
+
+export async function promoteRawStory(storyId: string, title?: string) {
+  const { data } = await api.post(`/editorial/raw-stories/${storyId}/promote`, null, {
+    params: { title },
+  })
+  return data
+}
+
+export async function archiveRawStory(storyId: string) {
+  const { data } = await api.post(`/editorial/raw-stories/${storyId}/archive`)
+  return data
+}
+
+export async function deleteRawStory(storyId: string) {
+  const { data } = await api.delete(`/editorial/raw-stories/${storyId}`)
+  return data
+}
+
+// Editorial Reviews
+export async function listReviews(limit?: number): Promise<EditorialReview[]> {
+  const { data } = await api.get('/editorial/reviews', { params: { limit } })
+  return data
+}
+
+export async function getReview(reviewId: string): Promise<EditorialReview> {
+  const { data } = await api.get(`/editorial/reviews/${reviewId}`)
+  return data
+}
+
+export async function getReviewByWeek(year: number, weekNumber: number): Promise<EditorialReview> {
+  const { data } = await api.get(`/editorial/reviews/week/${year}/${weekNumber}`)
+  return data
+}
+
+export async function runEditorialReview(weekNumber?: number, year?: number) {
+  const { data } = await api.post('/editorial/reviews/run', null, {
+    params: { week_number: weekNumber, year },
+  })
+  return data
+}
+
+// Stats
+export async function getEditorialStats(): Promise<EditorialStats> {
+  const { data } = await api.get('/editorial/stats')
+  return data
+}
+
+// Pipeline Operations
+export async function aggregateNews(days?: number, autoScore?: boolean) {
+  const { data } = await api.post('/editorial/pipeline/aggregate', null, {
+    params: { days, auto_score: autoScore },
+  })
+  return data
+}
+
+export async function getTopStories(limit?: number) {
+  const { data } = await api.get('/editorial/pipeline/top-stories', {
+    params: { limit },
+  })
+  return data
+}
+
+export async function runFullEditorialCycle(days?: number) {
+  const { data } = await api.post('/editorial/pipeline/full-cycle', null, {
+    params: { days },
+  })
+  return data
+}
+
 export default api

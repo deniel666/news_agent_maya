@@ -11,6 +11,7 @@ import {
   Clock,
   Zap,
   Library,
+  Scale,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 
@@ -21,6 +22,7 @@ interface LayoutProps {
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'On-Demand', href: '/on-demand', icon: Zap },
+  { name: 'Editorial', href: '/editorial', icon: Scale },
   { name: 'Content', href: '/content', icon: Library },
   { name: 'Briefings', href: '/briefings', icon: FileText },
   { name: 'Approvals', href: '/approvals', icon: CheckCircle },

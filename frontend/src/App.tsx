@@ -11,6 +11,7 @@ import OnDemand from './pages/OnDemand'
 import OnDemandDetail from './pages/OnDemandDetail'
 import ContentLibrary from './pages/ContentLibrary'
 import StoryDetail from './pages/StoryDetail'
+import Editorial from './pages/Editorial'
 import Settings from './pages/Settings'
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
         <Route path="/on-demand/:jobId" element={<OnDemandDetail />} />
         <Route path="/content" element={<ContentLibrary />} />
         <Route path="/content/:storyId" element={<StoryDetail />} />
+        <Route path="/editorial" element={<Editorial />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
     </Layout>
