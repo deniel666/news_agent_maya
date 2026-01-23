@@ -9,6 +9,8 @@ import Sources from './pages/Sources'
 import Schedule from './pages/Schedule'
 import OnDemand from './pages/OnDemand'
 import OnDemandDetail from './pages/OnDemandDetail'
+import ContentLibrary from './pages/ContentLibrary'
+import StoryDetail from './pages/StoryDetail'
 import Settings from './pages/Settings'
 
 function App() {
@@ -24,6 +26,8 @@ function App() {
         <Route path="/schedule" element={<Schedule />} />
         <Route path="/on-demand" element={<OnDemand />} />
         <Route path="/on-demand/:jobId" element={<OnDemandDetail />} />
+        <Route path="/content" element={<ContentLibrary />} />
+        <Route path="/content/:storyId" element={<StoryDetail />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
     </Layout>

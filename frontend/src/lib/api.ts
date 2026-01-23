@@ -361,4 +361,186 @@ export async function deleteOnDemandJob(jobId: string) {
   return data
 }
 
+// ==================
+// Content Library
+// ==================
+
+export interface Story {
+  id: string
+  title: string
+  description: string | null
+  source_url: string | null
+  story_type: string
+  status: string
+  tags: string[]
+  featured: boolean
+  script_en: string | null
+  script_ms: string | null
+  thumbnail_url: string | null
+  briefing_id: string | null
+  ondemand_job_id: string | null
+  created_at: string
+  updated_at: string | null
+  published_at: string | null
+}
+
+export interface VideoAsset {
+  id: string
+  story_id: string
+  language: string
+  video_url: string
+  thumbnail_url: string | null
+  duration_seconds: number | null
+  file_size_bytes: number | null
+  heygen_video_id: string | null
+  resolution: string | null
+  format: string | null
+  created_at: string
+}
+
+export interface PublishRecord {
+  id: string
+  story_id: string
+  video_id: string
+  platform: string
+  language: string
+  post_url: string | null
+  post_id: string | null
+  caption: string | null
+  status: string
+  error: string | null
+  scheduled_at: string | null
+  published_at: string | null
+  created_at: string
+}
+
+export interface ContentStats {
+  total_stories: number
+  draft_stories: number
+  script_ready_stories: number
+  video_ready_stories: number
+  published_stories: number
+  total_videos: number
+  english_videos: number
+  malay_videos: number
+  total_published: number
+  this_week: number
+  this_month: number
+}
+
+export async function listStories(params?: {
+  status?: string
+  story_type?: string
+  featured?: boolean
+  tag?: string
+  search?: string
+  limit?: number
+  offset?: number
+}): Promise<Story[]> {
+  const { data } = await api.get('/content/stories', { params })
+  return data
+}
+
+export async function createStory(story: {
+  title: string
+  description?: string
+  source_url?: string
+  story_type?: string
+  tags?: string[]
+  script_en?: string
+  script_ms?: string
+}) {
+  const { data } = await api.post('/content/stories', story)
+  return data
+}
+
+export async function getStory(storyId: string): Promise<Story> {
+  const { data } = await api.get(`/content/stories/${storyId}`)
+  return data
+}
+
+export async function updateStory(
+  storyId: string,
+  update: {
+    title?: string
+    description?: string
+    source_url?: string
+    status?: string
+    tags?: string[]
+    featured?: boolean
+    script_en?: string
+    script_ms?: string
+    thumbnail_url?: string
+  }
+) {
+  const { data } = await api.patch(`/content/stories/${storyId}`, update)
+  return data
+}
+
+export async function deleteStory(storyId: string) {
+  const { data } = await api.delete(`/content/stories/${storyId}`)
+  return data
+}
+
+export async function toggleFeatured(storyId: string) {
+  const { data } = await api.post(`/content/stories/${storyId}/toggle-featured`)
+  return data
+}
+
+export async function archiveStory(storyId: string) {
+  const { data } = await api.post(`/content/stories/${storyId}/archive`)
+  return data
+}
+
+export async function getContentStats(): Promise<ContentStats> {
+  const { data } = await api.get('/content/stats')
+  return data
+}
+
+export async function getAllTags(): Promise<string[]> {
+  const { data } = await api.get('/content/tags')
+  return data
+}
+
+export async function getStoryVideos(storyId: string): Promise<VideoAsset[]> {
+  const { data } = await api.get(`/content/stories/${storyId}/videos`)
+  return data
+}
+
+export async function deleteVideo(videoId: string) {
+  const { data } = await api.delete(`/content/videos/${videoId}`)
+  return data
+}
+
+export async function getStoryPublishRecords(storyId: string): Promise<PublishRecord[]> {
+  const { data } = await api.get(`/content/stories/${storyId}/publish-records`)
+  return data
+}
+
+export async function createPublishRecord(record: {
+  story_id: string
+  video_id: string
+  platform: string
+  language: string
+  caption?: string
+  scheduled_at?: string
+}) {
+  const { data } = await api.post('/content/publish-records', record)
+  return data
+}
+
+export async function updatePublishRecord(
+  recordId: string,
+  update: {
+    status?: string
+    post_url?: string
+    post_id?: string
+    error?: string
+    published_at?: string
+  }
+) {
+  const { data } = await api.patch(`/content/publish-records/${recordId}`, update)
+  return data
+}
+
 export default api
