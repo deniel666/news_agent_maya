@@ -1,8 +1,8 @@
 """API endpoints for agent configuration and management."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.agents.config import (
     AgentConfig,
@@ -12,6 +12,16 @@ from app.agents.config import (
     get_config_manager,
 )
 from app.agents.registry import get_registry
+from app.agents.cost_tracker import get_cost_tracker
+from app.agents.ab_testing import (
+    get_ab_manager,
+    Experiment,
+    VariantConfig,
+    ExperimentStatus,
+    create_model_comparison_experiment,
+    create_temperature_experiment,
+)
+from app.agents.plugins import get_plugin_manager, create_plugin_template
 
 router = APIRouter()
 
@@ -341,3 +351,252 @@ async def get_registry_status():
         "missing_handlers": list(configured_agents - registered_handlers),
         "extra_handlers": list(registered_handlers - configured_agents),
     }
+
+
+# =============================================================================
+# COST TRACKING ENDPOINTS
+# =============================================================================
+
+@router.get("/costs/summary")
+async def get_cost_summary(days: int = Query(default=30, ge=1, le=365)):
+    """Get overall cost summary for the past N days."""
+    tracker = get_cost_tracker()
+    return await tracker.get_cost_summary(days=days)
+
+
+@router.get("/costs/daily")
+async def get_daily_costs(days: int = Query(default=7, ge=1, le=90)):
+    """Get daily cost breakdown."""
+    tracker = get_cost_tracker()
+    return await tracker.get_daily_costs(days=days)
+
+
+@router.get("/costs/agent/{agent_id}")
+async def get_agent_costs(agent_id: str, days: int = Query(default=30, ge=1, le=365)):
+    """Get cost breakdown for a specific agent."""
+    tracker = get_cost_tracker()
+    return await tracker.get_agent_costs(agent_id=agent_id, days=days)
+
+
+@router.get("/costs/thread/{thread_id}")
+async def get_thread_costs(thread_id: str):
+    """Get costs for a specific pipeline thread."""
+    tracker = get_cost_tracker()
+    return await tracker.get_thread_costs(thread_id=thread_id)
+
+
+# =============================================================================
+# A/B TESTING ENDPOINTS
+# =============================================================================
+
+class CreateExperimentRequest(BaseModel):
+    """Request to create an A/B experiment."""
+    id: str
+    name: str
+    description: str = ""
+    target_agents: List[str] = Field(default_factory=list)
+    variants: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class QuickExperimentRequest(BaseModel):
+    """Request for quick experiment creation."""
+    id: str
+    name: str
+    target_agents: List[str] = Field(default_factory=list)
+
+
+@router.get("/experiments/")
+async def list_experiments(status: Optional[str] = None):
+    """List all A/B experiments."""
+    manager = get_ab_manager()
+    exp_status = ExperimentStatus(status) if status else None
+    experiments = await manager.list_experiments(status=exp_status)
+    return [e.model_dump() for e in experiments]
+
+
+@router.post("/experiments/")
+async def create_experiment(request: CreateExperimentRequest):
+    """Create a new A/B experiment."""
+    manager = get_ab_manager()
+
+    variants = [VariantConfig(**v) for v in request.variants]
+    experiment = Experiment(
+        id=request.id,
+        name=request.name,
+        description=request.description,
+        target_agents=request.target_agents,
+        variants=variants,
+    )
+
+    try:
+        created = await manager.create_experiment(experiment)
+        return created.model_dump()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/experiments/quick/model-comparison")
+async def create_model_comparison(
+    request: QuickExperimentRequest,
+    control_model: str = Query(default="gpt-4o"),
+    test_model: str = Query(default="gpt-4o-mini"),
+):
+    """Create a quick model comparison experiment."""
+    manager = get_ab_manager()
+
+    experiment = create_model_comparison_experiment(
+        experiment_id=request.id,
+        name=request.name,
+        control_model=control_model,
+        test_model=test_model,
+        target_agents=request.target_agents,
+    )
+
+    created = await manager.create_experiment(experiment)
+    return created.model_dump()
+
+
+@router.post("/experiments/quick/temperature")
+async def create_temperature_test(
+    request: QuickExperimentRequest,
+    temperatures: List[float] = Query(default=[0.3, 0.7, 1.0]),
+):
+    """Create a quick temperature comparison experiment."""
+    manager = get_ab_manager()
+
+    experiment = create_temperature_experiment(
+        experiment_id=request.id,
+        name=request.name,
+        temperatures=temperatures,
+        target_agents=request.target_agents,
+    )
+
+    created = await manager.create_experiment(experiment)
+    return created.model_dump()
+
+
+@router.get("/experiments/{experiment_id}")
+async def get_experiment(experiment_id: str):
+    """Get details of an experiment."""
+    manager = get_ab_manager()
+    exp = await manager.get_experiment(experiment_id)
+
+    if not exp:
+        raise HTTPException(status_code=404, detail=f"Experiment not found: {experiment_id}")
+
+    return exp.model_dump()
+
+
+@router.post("/experiments/{experiment_id}/start")
+async def start_experiment(experiment_id: str):
+    """Start an experiment."""
+    manager = get_ab_manager()
+
+    try:
+        exp = await manager.start_experiment(experiment_id)
+        return {"message": f"Experiment {experiment_id} started", "experiment": exp.model_dump()}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/experiments/{experiment_id}/stop")
+async def stop_experiment(experiment_id: str):
+    """Stop an experiment."""
+    manager = get_ab_manager()
+
+    try:
+        exp = await manager.stop_experiment(experiment_id)
+        return {"message": f"Experiment {experiment_id} stopped", "experiment": exp.model_dump()}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/experiments/{experiment_id}/results")
+async def get_experiment_results(experiment_id: str):
+    """Get results for an experiment."""
+    manager = get_ab_manager()
+    return await manager.get_experiment_results(experiment_id)
+
+
+# =============================================================================
+# PLUGIN ENDPOINTS
+# =============================================================================
+
+@router.get("/plugins/")
+async def list_plugins():
+    """List all loaded plugins."""
+    manager = get_plugin_manager()
+    return [p.model_dump() for p in manager.list_loaded_plugins()]
+
+
+@router.get("/plugins/available")
+async def list_available_plugins():
+    """List available plugins (not yet loaded)."""
+    manager = get_plugin_manager()
+    discovered = manager.discover_plugins()
+    loaded = [p.metadata.name for p in manager.list_loaded_plugins()]
+    return {
+        "discovered": discovered,
+        "loaded": loaded,
+        "available": [p for p in discovered if p not in loaded],
+    }
+
+
+@router.post("/plugins/{plugin_name}/load")
+async def load_plugin(plugin_name: str):
+    """Load a plugin."""
+    manager = get_plugin_manager()
+
+    try:
+        info = manager.load_plugin(plugin_name)
+        return info.model_dump()
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Plugin not found: {plugin_name}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load plugin: {str(e)}")
+
+
+@router.post("/plugins/{plugin_name}/unload")
+async def unload_plugin(plugin_name: str):
+    """Unload a plugin."""
+    manager = get_plugin_manager()
+
+    if manager.unload_plugin(plugin_name):
+        return {"message": f"Plugin {plugin_name} unloaded"}
+    else:
+        raise HTTPException(status_code=404, detail=f"Plugin not loaded: {plugin_name}")
+
+
+@router.post("/plugins/{plugin_name}/reload")
+async def reload_plugin(plugin_name: str):
+    """Reload a plugin (hot-reload)."""
+    manager = get_plugin_manager()
+
+    try:
+        info = manager.reload_plugin(plugin_name)
+        return {"message": f"Plugin {plugin_name} reloaded", "info": info.model_dump()}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Plugin not found: {plugin_name}")
+
+
+@router.post("/plugins/load-all")
+async def load_all_plugins():
+    """Load all available plugins."""
+    manager = get_plugin_manager()
+    results = manager.load_all_plugins()
+    return {
+        "loaded": len([r for r in results if r.enabled]),
+        "failed": len([r for r in results if not r.enabled]),
+        "plugins": [r.model_dump() for r in results],
+    }
+
+
+@router.post("/plugins/template")
+async def generate_plugin_template(
+    name: str,
+    description: str = "A custom Maya agent plugin",
+    author: str = "",
+):
+    """Generate a plugin template."""
+    template = create_plugin_template(name=name, description=description, author=author)
+    return {"template": template}

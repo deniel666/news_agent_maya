@@ -524,3 +524,173 @@ SELECT
     COUNT(*) FILTER (WHERE requires_review = true AND reviewed_at IS NULL) as pending_review
 FROM video_localizations
 GROUP BY language_code;
+
+-- ==================
+-- Agent Configuration System
+-- ==================
+
+CREATE TABLE IF NOT EXISTS agent_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    config_type VARCHAR(50) NOT NULL,       -- 'agent', 'segment', 'pipeline_flow'
+    config_id VARCHAR(100) NOT NULL,         -- Agent ID or 'default' for flow
+    config_data JSONB NOT NULL,              -- Full configuration as JSON
+    version_note VARCHAR(500),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ,
+
+    UNIQUE(config_type, config_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_configs_type ON agent_configs(config_type);
+
+-- Configuration history for audit trail
+CREATE TABLE IF NOT EXISTS agent_configs_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    config_type VARCHAR(50) NOT NULL,
+    config_id VARCHAR(100) NOT NULL,
+    config_data JSONB NOT NULL,
+    changed_by VARCHAR(200),
+    change_note VARCHAR(500),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_config_history_lookup ON agent_configs_history(config_type, config_id);
+CREATE INDEX IF NOT EXISTS idx_config_history_time ON agent_configs_history(created_at DESC);
+
+-- Trigger to log config changes
+CREATE OR REPLACE FUNCTION log_config_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO agent_configs_history (
+        config_type, config_id, config_data, change_note, created_at
+    ) VALUES (
+        OLD.config_type, OLD.config_id, OLD.config_data, 'Auto-saved before update', NOW()
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER agent_configs_history_trigger
+    BEFORE UPDATE ON agent_configs
+    FOR EACH ROW
+    EXECUTE FUNCTION log_config_change();
+
+-- ==================
+-- Agent Cost Tracking
+-- ==================
+
+CREATE TABLE IF NOT EXISTS agent_cost_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    agent_id VARCHAR(100) NOT NULL,
+    thread_id VARCHAR(100) NOT NULL,
+    model VARCHAR(100) NOT NULL,
+
+    -- Token usage
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    total_tokens INTEGER NOT NULL DEFAULT 0,
+
+    -- Cost
+    estimated_cost_usd DECIMAL(10,6) NOT NULL DEFAULT 0,
+
+    -- Extra info
+    metadata JSONB DEFAULT '{}',
+
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cost_logs_agent ON agent_cost_logs(agent_id);
+CREATE INDEX IF NOT EXISTS idx_cost_logs_thread ON agent_cost_logs(thread_id);
+CREATE INDEX IF NOT EXISTS idx_cost_logs_time ON agent_cost_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cost_logs_model ON agent_cost_logs(model);
+
+-- Daily cost summary view
+CREATE OR REPLACE VIEW daily_cost_summary AS
+SELECT
+    DATE(created_at) as date,
+    agent_id,
+    model,
+    COUNT(*) as call_count,
+    SUM(input_tokens) as total_input_tokens,
+    SUM(output_tokens) as total_output_tokens,
+    SUM(total_tokens) as total_tokens,
+    SUM(estimated_cost_usd) as total_cost_usd
+FROM agent_cost_logs
+GROUP BY DATE(created_at), agent_id, model
+ORDER BY date DESC, total_cost_usd DESC;
+
+-- ==================
+-- A/B Testing System
+-- ==================
+
+CREATE TABLE IF NOT EXISTS ab_experiments (
+    id VARCHAR(100) PRIMARY KEY,
+    name VARCHAR(500) NOT NULL,
+    description TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'draft',  -- draft, running, paused, completed, cancelled
+    config JSONB NOT NULL,
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_experiments_status ON ab_experiments(status);
+
+CREATE TABLE IF NOT EXISTS ab_experiment_results (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    experiment_id VARCHAR(100) NOT NULL REFERENCES ab_experiments(id) ON DELETE CASCADE,
+    variant_id VARCHAR(100) NOT NULL,
+    thread_id VARCHAR(100) NOT NULL,
+    agent_id VARCHAR(100) NOT NULL,
+
+    -- Metrics
+    execution_time_ms INTEGER DEFAULT 0,
+    input_tokens INTEGER DEFAULT 0,
+    output_tokens INTEGER DEFAULT 0,
+    cost_usd DECIMAL(10,6) DEFAULT 0,
+    success BOOLEAN DEFAULT true,
+    error_message TEXT,
+
+    -- Custom metrics
+    custom_metrics JSONB DEFAULT '{}',
+
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ab_results_experiment ON ab_experiment_results(experiment_id);
+CREATE INDEX IF NOT EXISTS idx_ab_results_variant ON ab_experiment_results(variant_id);
+CREATE INDEX IF NOT EXISTS idx_ab_results_agent ON ab_experiment_results(agent_id);
+
+-- A/B experiment stats view
+CREATE OR REPLACE VIEW ab_experiment_stats AS
+SELECT
+    e.id as experiment_id,
+    e.name as experiment_name,
+    e.status,
+    r.variant_id,
+    COUNT(*) as sample_size,
+    AVG(r.execution_time_ms) as avg_execution_time_ms,
+    AVG(r.input_tokens + r.output_tokens) as avg_tokens,
+    AVG(r.cost_usd) as avg_cost_usd,
+    SUM(CASE WHEN r.success THEN 1 ELSE 0 END)::DECIMAL / COUNT(*) as success_rate
+FROM ab_experiments e
+LEFT JOIN ab_experiment_results r ON e.id = r.experiment_id
+GROUP BY e.id, e.name, e.status, r.variant_id;
+
+-- ==================
+-- Agent Cost Stats View
+-- ==================
+
+CREATE OR REPLACE VIEW agent_cost_stats AS
+SELECT
+    agent_id,
+    COUNT(*) as total_calls,
+    SUM(total_tokens) as total_tokens,
+    SUM(estimated_cost_usd) as total_cost_usd,
+    AVG(estimated_cost_usd) as avg_cost_per_call,
+    MAX(created_at) as last_used
+FROM agent_cost_logs
+WHERE created_at >= NOW() - INTERVAL '30 days'
+GROUP BY agent_id
+ORDER BY total_cost_usd DESC;
