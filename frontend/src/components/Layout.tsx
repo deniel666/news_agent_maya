@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   FileText,
   CheckCircle,
+  BarChart3,
   Settings,
   Tv,
 } from 'lucide-react'
@@ -17,6 +18,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Briefings', href: '/briefings', icon: FileText },
   { name: 'Approvals', href: '/approvals', icon: CheckCircle },
+  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
