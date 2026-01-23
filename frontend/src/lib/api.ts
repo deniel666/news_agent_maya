@@ -185,4 +185,180 @@ export async function testConnection(service: string) {
   return data
 }
 
+// ==================
+// Sources Management
+// ==================
+
+export async function listSources(sourceType?: string, enabled?: boolean) {
+  const { data } = await api.get('/sources/', {
+    params: { source_type: sourceType, enabled },
+  })
+  return data
+}
+
+export async function createSource(source: {
+  name: string
+  source_type: string
+  url: string
+  category?: string
+  enabled?: boolean
+}) {
+  const { data } = await api.post('/sources/', source)
+  return data
+}
+
+export async function updateSource(
+  id: string,
+  update: {
+    name?: string
+    url?: string
+    category?: string
+    enabled?: boolean
+  }
+) {
+  const { data } = await api.patch(`/sources/${id}`, update)
+  return data
+}
+
+export async function deleteSource(id: string) {
+  const { data } = await api.delete(`/sources/${id}`)
+  return data
+}
+
+export async function toggleSource(id: string) {
+  const { data } = await api.post(`/sources/${id}/toggle`)
+  return data
+}
+
+export async function testSource(id: string) {
+  const { data } = await api.post(`/sources/test/${id}`)
+  return data
+}
+
+export async function importDefaultSources() {
+  const { data } = await api.post('/sources/import/defaults')
+  return data
+}
+
+// ==================
+// Cron Schedules
+// ==================
+
+export async function listSchedules() {
+  const { data } = await api.get('/cron/')
+  return data
+}
+
+export async function createSchedule(schedule: {
+  name: string
+  cron_expression: string
+  enabled?: boolean
+}) {
+  const { data } = await api.post('/cron/', schedule)
+  return data
+}
+
+export async function updateSchedule(
+  id: string,
+  update: {
+    name?: string
+    cron_expression?: string
+    enabled?: boolean
+  }
+) {
+  const { data } = await api.patch(`/cron/${id}`, update)
+  return data
+}
+
+export async function deleteSchedule(id: string) {
+  const { data } = await api.delete(`/cron/${id}`)
+  return data
+}
+
+export async function toggleSchedule(id: string) {
+  const { data } = await api.post(`/cron/${id}/toggle`)
+  return data
+}
+
+export async function runScheduleNow(id: string) {
+  const { data } = await api.post(`/cron/${id}/run-now`)
+  return data
+}
+
+export async function getCronPresets() {
+  const { data } = await api.get('/cron/presets/common')
+  return data
+}
+
+export async function validateCronExpression(expression: string) {
+  const { data } = await api.post('/cron/validate', null, {
+    params: { expression },
+  })
+  return data
+}
+
+// ==================
+// On-Demand Generation
+// ==================
+
+export async function generateFromArticle(request: {
+  article_url: string
+  title?: string
+  languages: string[]
+  platforms: string[]
+}) {
+  const { data } = await api.post('/on-demand/generate', request)
+  return data
+}
+
+export async function listOnDemandJobs(status?: string, limit?: number) {
+  const { data } = await api.get('/on-demand/jobs', {
+    params: { status, limit },
+  })
+  return data
+}
+
+export async function getOnDemandJob(jobId: string) {
+  const { data } = await api.get(`/on-demand/jobs/${jobId}`)
+  return data
+}
+
+export async function approveOnDemandScript(
+  jobId: string,
+  approved: boolean,
+  feedback?: string,
+  editedScripts?: Record<string, string>
+) {
+  const { data } = await api.post(`/on-demand/jobs/${jobId}/approve`, {
+    approved,
+    feedback,
+    edited_scripts: editedScripts,
+  })
+  return data
+}
+
+export async function approveOnDemandVideo(jobId: string, approved: boolean) {
+  const { data } = await api.post(`/on-demand/jobs/${jobId}/approve-video`, {
+    approved,
+  })
+  return data
+}
+
+export async function regenerateOnDemandJob(
+  jobId: string,
+  regenerateScript?: boolean,
+  regenerateVideo?: boolean
+) {
+  const { data } = await api.post(`/on-demand/jobs/${jobId}/regenerate`, {
+    regenerate_script: regenerateScript,
+    regenerate_video: regenerateVideo,
+  })
+  return data
+}
+
+export async function deleteOnDemandJob(jobId: string) {
+  const { data } = await api.delete(`/on-demand/jobs/${jobId}`)
+  return data
+}
+
 export default api

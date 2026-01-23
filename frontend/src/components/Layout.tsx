@@ -7,6 +7,9 @@ import {
   BarChart3,
   Settings,
   Tv,
+  Rss,
+  Clock,
+  Zap,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 
@@ -16,8 +19,11 @@ interface LayoutProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'On-Demand', href: '/on-demand', icon: Zap },
   { name: 'Briefings', href: '/briefings', icon: FileText },
   { name: 'Approvals', href: '/approvals', icon: CheckCircle },
+  { name: 'Sources', href: '/sources', icon: Rss },
+  { name: 'Schedule', href: '/schedule', icon: Clock },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
