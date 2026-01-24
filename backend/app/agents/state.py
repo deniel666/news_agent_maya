@@ -20,50 +20,119 @@ def merge_articles(left: List[dict], right: List[dict]) -> List[dict]:
     return result
 
 
-class MayaState(TypedDict):
-    """State for the Maya news briefing pipeline."""
+def merge_dicts(left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str, Any]:
+    """Merge dictionaries, right values override left."""
+    result = dict(left)
+    result.update(right)
+    return result
 
-    # Input
+
+class MayaState(TypedDict):
+    """State for the Maya Media Machine pipeline.
+
+    This state supports the 8 professional media roles:
+    - Research Agent (The Scout)
+    - Editor Agent (The Curator)
+    - Writer Agent (The Voice)
+    - Fact-Checker Agent (The Verifier)
+    - Localization Agent (The Adapter)
+    - Producer Agent (The Director)
+    - Social Media Agent (The Promoter)
+    - Analytics Agent (The Analyst)
+    """
+
+    # =========================================================================
+    # INPUT PARAMETERS
+    # =========================================================================
     week_number: int
     year: int
     thread_id: str
 
-    # Language Support
+    # =========================================================================
+    # LANGUAGE SUPPORT
+    # =========================================================================
     language_code: str
     language_config: Dict[str, Any]
     requires_external_review: bool
 
-    # Aggregation
+    # =========================================================================
+    # RESEARCH AGENT OUTPUT
+    # =========================================================================
     raw_articles: Annotated[List[dict], merge_articles]
+    research_metadata: Optional[Dict[str, Any]]
 
-    # Categorized articles
+    # =========================================================================
+    # EDITOR AGENT OUTPUT
+    # =========================================================================
     local_news: List[dict]
     business_news: List[dict]
     ai_news: List[dict]
+    editorial_angles: Dict[str, str]  # article_id -> angle
+    editor_metadata: Optional[Dict[str, Any]]
 
-    # Scripts
+    # =========================================================================
+    # WRITER AGENT OUTPUT
+    # =========================================================================
     local_script: Optional[str]
+    local_metadata: Optional[Dict[str, Any]]
     business_script: Optional[str]
+    business_metadata: Optional[Dict[str, Any]]
     ai_script: Optional[str]
-    full_script: Optional[str]
+    ai_metadata: Optional[Dict[str, Any]]
 
-    # Video
+    # =========================================================================
+    # FACT-CHECKER AGENT OUTPUT
+    # =========================================================================
+    verification_report: Optional[Dict[str, Any]]
+    flagged_claims: List[Dict[str, Any]]
+
+    # =========================================================================
+    # SCRIPT ASSEMBLER OUTPUT
+    # =========================================================================
+    full_script: Optional[str]
+    caption: Optional[str]
+    script_metadata: Optional[Dict[str, Any]]
+
+    # =========================================================================
+    # LOCALIZATION AGENT OUTPUT
+    # =========================================================================
+    localized_scripts: Dict[str, str]  # language_code -> script
+    primary_language: Optional[str]
+    localization_metadata: Optional[Dict[str, Any]]
+
+    # =========================================================================
+    # PRODUCER AGENT OUTPUT
+    # =========================================================================
     heygen_video_id: Optional[str]
     video_url: Optional[str]
     video_duration: Optional[int]
+    producer_metadata: Optional[Dict[str, Any]]
 
-    # Publishing
-    caption: Optional[str]
-    post_results: Optional[dict]
+    # =========================================================================
+    # SOCIAL MEDIA AGENT OUTPUT
+    # =========================================================================
+    post_results: Optional[Dict[str, Any]]
+    platform_captions: Dict[str, str]  # platform -> caption
+    social_metadata: Optional[Dict[str, Any]]
 
-    # Control
+    # =========================================================================
+    # ANALYTICS AGENT OUTPUT
+    # =========================================================================
+    analytics_report: Optional[Dict[str, Any]]
+
+    # =========================================================================
+    # PIPELINE CONTROL
+    # =========================================================================
     status: PipelineStatus
     error: Optional[str]
 
-    # Human approval flags
+    # =========================================================================
+    # HUMAN APPROVAL FLAGS
+    # =========================================================================
     script_approved: Optional[bool]
     script_feedback: Optional[str]
     video_approved: Optional[bool]
+    video_feedback: Optional[str]
 
 
 def create_initial_state(
@@ -81,41 +150,76 @@ def create_initial_state(
     Returns:
         Initial MayaState with language configuration
     """
-    thread_id = f"{year}-W{week_number:02d}"
+    thread_id = f"{year}-W{week_number:02d}-{language_code}"
 
     # Get language configuration
     lang_config = get_language_config(language_code)
 
     return MayaState(
+        # Input
         week_number=week_number,
         year=year,
         thread_id=thread_id,
+
         # Language
         language_code=language_code,
         language_config=lang_config,
         requires_external_review=lang_config.get("requires_external_review", False),
-        # Articles
+
+        # Research
         raw_articles=[],
+        research_metadata=None,
+
+        # Editor
         local_news=[],
         business_news=[],
         ai_news=[],
-        # Scripts
+        editorial_angles={},
+        editor_metadata=None,
+
+        # Writers
         local_script=None,
+        local_metadata=None,
         business_script=None,
+        business_metadata=None,
         ai_script=None,
+        ai_metadata=None,
+
+        # Fact-checker
+        verification_report=None,
+        flagged_claims=[],
+
+        # Script assembly
         full_script=None,
-        # Video
+        caption=None,
+        script_metadata=None,
+
+        # Localization
+        localized_scripts={},
+        primary_language=None,
+        localization_metadata=None,
+
+        # Producer
         heygen_video_id=None,
         video_url=None,
         video_duration=None,
-        # Publishing
-        caption=None,
+        producer_metadata=None,
+
+        # Social media
         post_results=None,
+        platform_captions={},
+        social_metadata=None,
+
+        # Analytics
+        analytics_report=None,
+
         # Control
         status=PipelineStatus.AGGREGATING,
         error=None,
+
         # Approvals
         script_approved=None,
         script_feedback=None,
         video_approved=None,
+        video_feedback=None,
     )
