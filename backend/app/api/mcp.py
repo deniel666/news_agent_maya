@@ -313,3 +313,141 @@ async def list_default_servers():
         }
         for config in DEFAULT_MCP_SERVERS
     ]
+
+
+# =============================================================================
+# COMPOSIO INTEGRATION
+# =============================================================================
+
+class ComposioToolCallRequest(BaseModel):
+    """Request to call a Composio tool."""
+    tool_name: str
+    arguments: Dict[str, Any] = Field(default_factory=dict)
+    agent_id: Optional[str] = None
+    thread_id: Optional[str] = None
+
+
+class ComposioDiscoverRequest(BaseModel):
+    """Request to discover Composio tools."""
+    apps: Optional[List[str]] = None  # e.g., ["GOOGLENEWS", "TWITTER"]
+
+
+@router.get("/composio/status")
+async def get_composio_status():
+    """Get Composio integration status."""
+    registry = get_mcp_registry()
+
+    status = {
+        "enabled": registry.composio_enabled,
+        "connected": False,
+        "tools_count": 0,
+        "tools": [],
+    }
+
+    if registry.composio_enabled:
+        try:
+            client = await registry.get_composio_client()
+            if client:
+                status["connected"] = client.is_connected
+                status["tools"] = client.list_tools()
+                status["tools_count"] = len(status["tools"])
+        except Exception as e:
+            status["error"] = str(e)
+
+    return status
+
+
+@router.post("/composio/discover")
+async def discover_composio_tools(request: ComposioDiscoverRequest):
+    """Discover available Composio tools.
+
+    Args:
+        apps: Optional list of app names to filter (e.g., ["GOOGLENEWS", "TWITTER"])
+    """
+    registry = get_mcp_registry()
+
+    if not registry.composio_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="Composio is not configured. Set COMPOSIO_API_KEY in environment."
+        )
+
+    try:
+        tools = await registry.discover_composio_tools(request.apps)
+        return {
+            "tools": tools,
+            "count": len(tools),
+            "apps_filter": request.apps,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/composio/tools")
+async def list_composio_tools():
+    """List discovered Composio tools."""
+    registry = get_mcp_registry()
+
+    if not registry.composio_enabled:
+        return {"tools": [], "count": 0, "enabled": False}
+
+    try:
+        client = await registry.get_composio_client()
+        if client:
+            tools = client.list_tools()
+            return {
+                "tools": tools,
+                "count": len(tools),
+                "enabled": True,
+            }
+        return {"tools": [], "count": 0, "enabled": True, "error": "Client not connected"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/composio/tools/call")
+async def call_composio_tool(request: ComposioToolCallRequest):
+    """Call a Composio tool.
+
+    This uses Composio's Tool Router to execute tools from 500+ integrated apps.
+    """
+    registry = get_mcp_registry()
+
+    if not registry.composio_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="Composio is not configured. Set COMPOSIO_API_KEY in environment."
+        )
+
+    result = await registry.call_composio_tool(
+        tool_name=request.tool_name,
+        arguments=request.arguments,
+        agent_id=request.agent_id,
+        thread_id=request.thread_id,
+    )
+
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=500,
+            detail=result.get("error", "Composio tool call failed")
+        )
+
+    return result
+
+
+@router.get("/composio/logs")
+async def get_composio_logs(limit: int = 100):
+    """Get Composio call logs."""
+    registry = get_mcp_registry()
+
+    if not registry.composio_enabled:
+        return {"logs": [], "count": 0}
+
+    try:
+        client = await registry.get_composio_client()
+        if client:
+            logs = client.get_call_logs(limit)
+            return {"logs": logs, "count": len(logs)}
+        return {"logs": [], "count": 0}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

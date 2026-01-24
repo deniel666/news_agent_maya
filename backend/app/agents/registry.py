@@ -276,6 +276,9 @@ def with_mcp_tools(fn: AgentHandler) -> AgentHandler:
     This decorator provides MCP tool calling capabilities to agents.
     Tools are injected as callable async functions that the agent can use.
 
+    Prefers Composio when configured (500+ tools via single endpoint),
+    falls back to legacy MCP servers otherwise.
+
     Usage:
         @agent("research")
         @with_mcp_tools
@@ -295,20 +298,46 @@ def with_mcp_tools(fn: AgentHandler) -> AgentHandler:
     @wraps(fn)
     async def wrapper(state: MayaState, config: AgentConfig) -> Dict[str, Any]:
         mcp_tools: Dict[str, Callable] = {}
+        thread_id = state.get("thread_id", "")
 
-        if config.uses_mcp():
-            try:
-                from app.mcp.registry import get_mcp_registry
+        try:
+            from app.mcp.registry import get_mcp_registry
 
-                registry = get_mcp_registry()
-                thread_id = state.get("thread_id", "")
+            registry = get_mcp_registry()
 
-                # Get all tools from configured MCP servers
+            # Try Composio first (preferred - 500+ tools via single endpoint)
+            if registry.composio_enabled:
+                try:
+                    composio_client = await registry.get_composio_client()
+                    if composio_client:
+                        # Discover tools if not already done
+                        if not composio_client.list_tools():
+                            await composio_client.discover_tools()
+
+                        for tool_name in composio_client.list_tools():
+                            async def create_composio_caller(tname: str):
+                                async def call_tool(**kwargs):
+                                    return await registry.call_composio_tool(
+                                        tool_name=tname,
+                                        arguments=kwargs,
+                                        agent_id=config.id if config else None,
+                                        thread_id=thread_id,
+                                    )
+                                return call_tool
+
+                            mcp_tools[tool_name] = await create_composio_caller(tool_name)
+
+                        logger.info(f"Injected {len(mcp_tools)} Composio tools for agent {config.id if config else 'unknown'}")
+
+                except Exception as e:
+                    logger.warning(f"Composio tools injection failed: {e}")
+
+            # Fall back to legacy MCP servers if configured and Composio didn't provide tools
+            if config and config.uses_mcp() and not mcp_tools:
                 for server_id in config.get_mcp_servers():
                     client = await registry.get_client(server_id)
                     if client:
                         for tool_name in client.list_tools():
-                            # Create a closure for each tool
                             async def create_tool_caller(sid: str, tname: str):
                                 async def call_tool(**kwargs):
                                     return await registry.call_tool(
@@ -322,12 +351,12 @@ def with_mcp_tools(fn: AgentHandler) -> AgentHandler:
 
                             mcp_tools[tool_name] = await create_tool_caller(server_id, tool_name)
 
-                logger.info(f"Injected {len(mcp_tools)} MCP tools for agent {config.id}")
+                logger.info(f"Injected {len(mcp_tools)} legacy MCP tools for agent {config.id}")
 
-            except ImportError:
-                logger.warning("MCP module not available, skipping MCP tools injection")
-            except Exception as e:
-                logger.error(f"Error injecting MCP tools: {e}")
+        except ImportError:
+            logger.warning("MCP module not available, skipping MCP tools injection")
+        except Exception as e:
+            logger.error(f"Error injecting MCP tools: {e}")
 
         return await fn(state, config, mcp_tools=mcp_tools)
 

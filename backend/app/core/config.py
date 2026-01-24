@@ -58,7 +58,12 @@ class Settings(BaseSettings):
     mcp_enabled: bool = True
     mcp_default_timeout: int = 30
 
-    # MCP Server API Keys (Trending/News - mostly FREE)
+    # Composio Configuration (MCP Gateway)
+    composio_api_key: Optional[str] = None
+    composio_user_id: str = "maya_agent"
+    composio_base_url: str = "https://backend.composio.dev"
+
+    # Legacy MCP Server API Keys (kept for fallback)
     rapidapi_key: Optional[str] = None  # For TikTok trends (~$10/mo)
 
     # MCP Stock Images (FREE)

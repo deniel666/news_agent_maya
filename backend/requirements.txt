@@ -11,6 +11,10 @@ langchain==0.2.0
 langchain-openai==0.1.0
 langchain-community==0.2.0
 
+# Composio MCP Integration
+composio-langchain>=0.6.0
+composio-core>=0.6.0
+
 # Database
 supabase==2.3.0
 asyncpg==0.29.0
