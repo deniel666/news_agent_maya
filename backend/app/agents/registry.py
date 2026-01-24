@@ -270,6 +270,70 @@ def with_llm(fn: AgentHandler) -> AgentHandler:
     return wrapper
 
 
+def with_mcp_tools(fn: AgentHandler) -> AgentHandler:
+    """Decorator that injects MCP tools into handler if configured.
+
+    This decorator provides MCP tool calling capabilities to agents.
+    Tools are injected as callable async functions that the agent can use.
+
+    Usage:
+        @agent("research")
+        @with_mcp_tools
+        async def research_agent(
+            state: MayaState,
+            config: AgentConfig,
+            mcp_tools: Dict[str, Callable] = None
+        ) -> Dict[str, Any]:
+            # Use MCP tools if available
+            if mcp_tools and "get_trending_keywords" in mcp_tools:
+                trending = await mcp_tools["get_trending_keywords"](geo="MY")
+                if trending.get("success"):
+                    # Process trending topics...
+
+            return {"raw_articles": articles}
+    """
+    @wraps(fn)
+    async def wrapper(state: MayaState, config: AgentConfig) -> Dict[str, Any]:
+        mcp_tools: Dict[str, Callable] = {}
+
+        if config.uses_mcp():
+            try:
+                from app.mcp.registry import get_mcp_registry
+
+                registry = get_mcp_registry()
+                thread_id = state.get("thread_id", "")
+
+                # Get all tools from configured MCP servers
+                for server_id in config.get_mcp_servers():
+                    client = await registry.get_client(server_id)
+                    if client:
+                        for tool_name in client.list_tools():
+                            # Create a closure for each tool
+                            async def create_tool_caller(sid: str, tname: str):
+                                async def call_tool(**kwargs):
+                                    return await registry.call_tool(
+                                        server_id=sid,
+                                        tool_name=tname,
+                                        arguments=kwargs,
+                                        agent_id=config.id,
+                                        thread_id=thread_id,
+                                    )
+                                return call_tool
+
+                            mcp_tools[tool_name] = await create_tool_caller(server_id, tool_name)
+
+                logger.info(f"Injected {len(mcp_tools)} MCP tools for agent {config.id}")
+
+            except ImportError:
+                logger.warning("MCP module not available, skipping MCP tools injection")
+            except Exception as e:
+                logger.error(f"Error injecting MCP tools: {e}")
+
+        return await fn(state, config, mcp_tools=mcp_tools)
+
+    return wrapper
+
+
 # =============================================================================
 # NODE WRAPPER FOR LANGGRAPH
 # =============================================================================

@@ -54,6 +54,23 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
     backend_url: str = "http://localhost:8000"
 
+    # MCP Configuration
+    mcp_enabled: bool = True
+    mcp_default_timeout: int = 30
+
+    # MCP Server API Keys (Trending/News - mostly FREE)
+    rapidapi_key: Optional[str] = None  # For TikTok trends (~$10/mo)
+
+    # MCP Stock Images (FREE)
+    pexels_api_key: Optional[str] = None
+    unsplash_access_key: Optional[str] = None
+    pixabay_api_key: Optional[str] = None
+
+    # MCP Analytics (subscription-based)
+    metricool_user_token: Optional[str] = None
+    metricool_user_id: Optional[str] = None
+    sociavault_api_key: Optional[str] = None
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

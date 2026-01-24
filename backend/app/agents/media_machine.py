@@ -19,7 +19,7 @@ from app.integrations.heygen import get_heygen_client
 from app.integrations.blotato import get_blotato_client, MAYA_HASHTAGS
 
 from .config import AgentConfig, get_config_manager
-from .registry import agent, get_registry
+from .registry import agent, get_registry, with_mcp_tools
 from .state import MayaState
 from .prompts import (
     get_maya_persona,
@@ -64,7 +64,12 @@ Output a relevance score from 0.0 to 1.0."""
 
 
 @agent("research")
-async def research_agent(state: MayaState, config: AgentConfig = None) -> Dict[str, Any]:
+@with_mcp_tools
+async def research_agent(
+    state: MayaState,
+    config: AgentConfig = None,
+    mcp_tools: Dict[str, Any] = None
+) -> Dict[str, Any]:
     """
     The Scout - Aggregates news from all configured sources.
 
@@ -73,8 +78,15 @@ async def research_agent(state: MayaState, config: AgentConfig = None) -> Dict[s
     - Extract and normalize article data
     - Initial relevance scoring for Malaysian SME audience
     - Detect duplicates across sources
+
+    MCP Tools Used (when configured):
+    - get_trending_keywords: Get Malaysia trending topics (Google Trends MCP)
+    - get_news_by_location: Get news by location (Google Trends MCP)
+    - get_news_by_topic: Get news by topic (Google Trends MCP)
     """
-    aggregator = get_news_aggregator()
+    raw_articles = []
+    trending_topics = []
+    mcp_used = False
 
     # Get config params
     lookback_days = 7
@@ -83,39 +95,134 @@ async def research_agent(state: MayaState, config: AgentConfig = None) -> Dict[s
         lookback_days = config.params.get("lookback_days", 7)
         max_articles = config.params.get("max_articles", 200)
 
-    try:
-        articles = await aggregator.aggregate_all(days=lookback_days)
+    # 1. Try MCP tools first (Google News Trends)
+    if mcp_tools and config and config.prefers_mcp():
+        try:
+            # Get Malaysia trending topics
+            if "get_trending_keywords" in mcp_tools:
+                trending_result = await mcp_tools["get_trending_keywords"](geo="MY")
+                if trending_result.get("success"):
+                    mcp_used = True
+                    for item in trending_result.get("content", []):
+                        if isinstance(item, dict) and item.get("text"):
+                            trending_topics.append(item["text"])
+                        elif isinstance(item, str):
+                            trending_topics.append(item)
 
-        # Convert to dict format for state
-        raw_articles = [
-            {
-                "id": f"article_{i}",
-                "source_type": a.source_type,
-                "source_name": a.source_name,
-                "title": a.title,
-                "content": a.content,
-                "url": a.url,
-                "published_at": a.published_at.isoformat() if a.published_at else None,
-                "fetched_at": datetime.utcnow().isoformat(),
-            }
-            for i, a in enumerate(articles[:max_articles])
-        ]
+            # Get news by location (Malaysia)
+            if "get_news_by_location" in mcp_tools:
+                location_news = await mcp_tools["get_news_by_location"](
+                    location="Malaysia",
+                    summarize=False
+                )
+                if location_news.get("success"):
+                    mcp_used = True
+                    for item in location_news.get("content", []):
+                        if isinstance(item, dict):
+                            raw_articles.append({
+                                "id": f"article_{len(raw_articles)}",
+                                "source_type": "google_trends_mcp",
+                                "source_name": "Google News",
+                                "title": item.get("title", ""),
+                                "content": item.get("summary", item.get("description", "")),
+                                "url": item.get("link", item.get("url", "")),
+                                "published_at": item.get("published", None),
+                                "fetched_at": datetime.utcnow().isoformat(),
+                            })
 
-        return {
-            "raw_articles": raw_articles,
-            "research_metadata": {
-                "total_fetched": len(articles),
-                "sources_checked": list(set(a.source_name for a in articles)),
-                "lookback_days": lookback_days,
-                "timestamp": datetime.utcnow().isoformat(),
-            },
-            "status": PipelineStatus.CATEGORIZING,
-        }
-    except Exception as e:
-        return {
-            "error": f"Research failed: {str(e)}",
-            "status": PipelineStatus.FAILED,
-        }
+            # Get business news
+            if "get_news_by_topic" in mcp_tools:
+                business_news = await mcp_tools["get_news_by_topic"](
+                    topic="BUSINESS"
+                )
+                if business_news.get("success"):
+                    mcp_used = True
+                    for item in business_news.get("content", []):
+                        if isinstance(item, dict):
+                            # Avoid duplicates
+                            url = item.get("link", item.get("url", ""))
+                            if not any(a.get("url") == url for a in raw_articles):
+                                raw_articles.append({
+                                    "id": f"article_{len(raw_articles)}",
+                                    "source_type": "google_trends_mcp",
+                                    "source_name": "Google News Business",
+                                    "title": item.get("title", ""),
+                                    "content": item.get("summary", item.get("description", "")),
+                                    "url": url,
+                                    "published_at": item.get("published", None),
+                                    "fetched_at": datetime.utcnow().isoformat(),
+                                })
+
+                # Get technology news
+                tech_news = await mcp_tools["get_news_by_topic"](
+                    topic="TECHNOLOGY"
+                )
+                if tech_news.get("success"):
+                    for item in tech_news.get("content", []):
+                        if isinstance(item, dict):
+                            url = item.get("link", item.get("url", ""))
+                            if not any(a.get("url") == url for a in raw_articles):
+                                raw_articles.append({
+                                    "id": f"article_{len(raw_articles)}",
+                                    "source_type": "google_trends_mcp",
+                                    "source_name": "Google News Technology",
+                                    "title": item.get("title", ""),
+                                    "content": item.get("summary", item.get("description", "")),
+                                    "url": url,
+                                    "published_at": item.get("published", None),
+                                    "fetched_at": datetime.utcnow().isoformat(),
+                                })
+
+        except Exception as e:
+            # Log error but continue to fallback
+            import logging
+            logging.getLogger(__name__).warning(f"MCP research failed: {e}")
+
+    # 2. Fallback to built-in aggregator if MCP didn't provide enough articles
+    if config is None or config.should_fallback_to_builtin() or len(raw_articles) < 10:
+        try:
+            aggregator = get_news_aggregator()
+            articles = await aggregator.aggregate_all(days=lookback_days)
+
+            # Add articles from aggregator, avoiding duplicates
+            for i, a in enumerate(articles):
+                if len(raw_articles) >= max_articles:
+                    break
+                # Check for duplicate URLs
+                if not any(r.get("url") == a.url for r in raw_articles):
+                    raw_articles.append({
+                        "id": f"article_{len(raw_articles)}",
+                        "source_type": a.source_type,
+                        "source_name": a.source_name,
+                        "title": a.title,
+                        "content": a.content,
+                        "url": a.url,
+                        "published_at": a.published_at.isoformat() if a.published_at else None,
+                        "fetched_at": datetime.utcnow().isoformat(),
+                    })
+        except Exception as e:
+            if not raw_articles:
+                return {
+                    "error": f"Research failed: {str(e)}",
+                    "status": PipelineStatus.FAILED,
+                }
+
+    # Limit to max_articles
+    raw_articles = raw_articles[:max_articles]
+
+    return {
+        "raw_articles": raw_articles,
+        "trending_topics": trending_topics,
+        "research_metadata": {
+            "total_fetched": len(raw_articles),
+            "mcp_used": mcp_used,
+            "trending_topics_count": len(trending_topics),
+            "sources_checked": list(set(a.get("source_name", "") for a in raw_articles)),
+            "lookback_days": lookback_days,
+            "timestamp": datetime.utcnow().isoformat(),
+        },
+        "status": PipelineStatus.CATEGORIZING,
+    }
 
 
 # =============================================================================
@@ -877,15 +984,74 @@ async def social_media_agent(state: MayaState, config: AgentConfig = None) -> Di
 # =============================================================================
 
 @agent("analytics")
-async def analytics_agent(state: MayaState, config: AgentConfig = None) -> Dict[str, Any]:
+@with_mcp_tools
+async def analytics_agent(
+    state: MayaState,
+    config: AgentConfig = None,
+    mcp_tools: Dict[str, Any] = None
+) -> Dict[str, Any]:
     """
     The Analyst - Tracks performance and provides feedback.
 
-    Note: Full analytics requires integration with platform APIs.
-    This is a placeholder that logs the content metadata for future analysis.
+    MCP Tools Used (when configured):
+    - get_analytics: Get platform performance metrics (Metricool MCP)
+    - get_best_time_to_post: Get optimal posting times (Metricool MCP)
+    - get-tiktok-profile: Get TikTok profile stats (viral.app MCP)
+    - list-profile-videos: Get recent video performance (viral.app MCP)
     """
     post_results = state.get("post_results", {})
     thread_id = state.get("thread_id", "")
+    mcp_used = False
+
+    # Initialize platform performance data
+    platform_performance = {}
+    optimal_posting_times = {}
+    recommendations = []
+
+    # 1. Try MCP tools for analytics
+    if mcp_tools and config and config.prefers_mcp():
+        try:
+            # Get platform analytics from Metricool
+            if "get_analytics" in mcp_tools:
+                analytics_result = await mcp_tools["get_analytics"](days=7)
+                if analytics_result.get("success"):
+                    mcp_used = True
+                    platform_performance = analytics_result.get("content", {})
+
+            # Get best posting times
+            if "get_best_time_to_post" in mcp_tools:
+                times_result = await mcp_tools["get_best_time_to_post"]()
+                if times_result.get("success"):
+                    mcp_used = True
+                    optimal_posting_times = times_result.get("content", {})
+
+            # Get TikTok-specific analytics from viral.app
+            if "get-tiktok-profile" in mcp_tools:
+                tiktok_result = await mcp_tools["get-tiktok-profile"]()
+                if tiktok_result.get("success"):
+                    mcp_used = True
+                    platform_performance["tiktok_profile"] = tiktok_result.get("content", {})
+
+            # Get recent video performance
+            if "list-profile-videos" in mcp_tools:
+                videos_result = await mcp_tools["list-profile-videos"](limit=10)
+                if videos_result.get("success"):
+                    mcp_used = True
+                    platform_performance["recent_videos"] = videos_result.get("content", [])
+
+                    # Generate recommendations based on video performance
+                    videos = videos_result.get("content", [])
+                    if videos:
+                        avg_views = sum(v.get("views", 0) for v in videos) / len(videos)
+                        avg_engagement = sum(v.get("engagement_rate", 0) for v in videos) / len(videos)
+                        recommendations.append({
+                            "type": "performance_benchmark",
+                            "message": f"Average views: {avg_views:.0f}, Average engagement: {avg_engagement:.2%}",
+                        })
+
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"MCP analytics failed: {e}")
 
     # Build analytics report
     analytics_report = {
@@ -899,6 +1065,7 @@ async def analytics_agent(state: MayaState, config: AgentConfig = None) -> Dict[
             "ai_articles_used": len(state.get("ai_news", [])),
             "script_word_count": state.get("script_metadata", {}).get("total_word_count"),
             "video_duration": state.get("video_duration"),
+            "trending_topics_used": len(state.get("trending_topics", [])),
         },
         "quality_metrics": {
             "verification_confidence": state.get("verification_report", {}).get("overall_confidence"),
@@ -908,14 +1075,13 @@ async def analytics_agent(state: MayaState, config: AgentConfig = None) -> Dict[
             "platforms": list(state.get("platform_captions", {}).keys()),
             "post_count": len(post_results) if isinstance(post_results, dict) else 0,
         },
+        # MCP-enhanced metrics
+        "platform_performance": platform_performance,
+        "optimal_posting_times": optimal_posting_times,
+        "recommendations": recommendations,
+        "mcp_used": mcp_used,
         "generated_at": datetime.utcnow().isoformat(),
     }
-
-    # TODO: In the future, this would:
-    # - Query platform APIs for engagement metrics
-    # - Calculate reach, impressions, engagement rate
-    # - Identify top-performing content patterns
-    # - Feed recommendations back to the Editor agent
 
     return {
         "analytics_report": analytics_report,

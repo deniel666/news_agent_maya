@@ -6,11 +6,15 @@ This module provides a flexible, configurable agent architecture that allows:
 - Enable/disable agents without code changes
 - Custom prompts and parameters per agent
 - Pipeline flow customization
+- MCP server integration for enhanced capabilities
 """
 
-from typing import Dict, Any, Optional, List, Callable, Literal
+from typing import Dict, Any, Optional, List, Callable, Literal, TYPE_CHECKING
 from pydantic import BaseModel, Field
 from enum import Enum
+
+if TYPE_CHECKING:
+    from app.mcp.config import AgentMCPConfig
 
 
 class AgentType(str, Enum):
@@ -71,8 +75,35 @@ class AgentConfig(BaseModel):
     # Custom parameters (agent-specific)
     params: Dict[str, Any] = Field(default_factory=dict)
 
+    # MCP Configuration (for agents using MCP tools)
+    mcp_config: Optional[Any] = None  # AgentMCPConfig when set
+
     class Config:
         use_enum_values = True
+
+    def uses_mcp(self) -> bool:
+        """Check if this agent uses MCP tools."""
+        if self.mcp_config is None:
+            return False
+        return getattr(self.mcp_config, 'enabled', False)
+
+    def get_mcp_servers(self) -> List[str]:
+        """Get list of MCP server IDs this agent uses."""
+        if not self.uses_mcp():
+            return []
+        return getattr(self.mcp_config, 'servers', [])
+
+    def prefers_mcp(self) -> bool:
+        """Check if this agent prefers MCP over built-in implementations."""
+        if not self.uses_mcp():
+            return False
+        return getattr(self.mcp_config, 'prefer_mcp', True)
+
+    def should_fallback_to_builtin(self) -> bool:
+        """Check if agent should fallback to built-in when MCP fails."""
+        if not self.uses_mcp():
+            return True
+        return getattr(self.mcp_config, 'fallback_to_builtin', True)
 
 
 class PipelineFlowConfig(BaseModel):

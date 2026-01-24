@@ -59,6 +59,7 @@ class MayaState(TypedDict):
     # RESEARCH AGENT OUTPUT
     # =========================================================================
     raw_articles: Annotated[List[dict], merge_articles]
+    trending_topics: List[str]  # MCP: Trending topics from Google Trends
     research_metadata: Optional[Dict[str, Any]]
 
     # =========================================================================
@@ -168,6 +169,7 @@ def create_initial_state(
 
         # Research
         raw_articles=[],
+        trending_topics=[],
         research_metadata=None,
 
         # Editor

@@ -12,6 +12,7 @@ from .telegram import router as telegram_router
 from .content import router as content_router
 from .editorial import router as editorial_router
 from .agents import router as agents_router
+from .mcp import router as mcp_router
 
 api_router = APIRouter()
 
@@ -27,5 +28,6 @@ api_router.include_router(telegram_router, prefix="/telegram", tags=["telegram"]
 api_router.include_router(content_router, prefix="/content", tags=["content"])
 api_router.include_router(editorial_router, prefix="/editorial", tags=["editorial"])
 api_router.include_router(agents_router, prefix="/agents", tags=["agents"])
+api_router.include_router(mcp_router, tags=["MCP"])
 
 __all__ = ["api_router"]
