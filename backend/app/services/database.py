@@ -14,6 +14,7 @@ from app.models.schemas import (
     SocialPostCreate,
     PipelineStatus,
 )
+from app.models.sources import OnDemandJob, Language, NewsSource, NewsSourceCreate, NewsSourceUpdate, SourceType
 
 # Check if Supabase is configured
 SUPABASE_ENABLED = bool(settings.supabase_url and settings.supabase_key and 
@@ -39,6 +40,8 @@ class DatabaseService:
             self._briefings: dict = {}
             self._videos: dict = {}
             self._posts: dict = {}
+            self._ondemand_jobs: dict = {}
+            self._sources: dict = {}
 
     # Weekly Briefings
     async def create_briefing(self, data: WeeklyBriefingCreate) -> WeeklyBriefing:
@@ -333,6 +336,249 @@ class DatabaseService:
         ).execute()
 
         return [SocialPost(**item) for item in result.data]
+
+    # On-Demand Jobs
+    async def create_ondemand_job(
+        self,
+        article_url: str,
+        title: Optional[str] = None,
+        languages: Optional[List[str]] = None,
+        platforms: Optional[List[str]] = None,
+    ) -> OnDemandJob:
+        """Create a new on-demand job."""
+        if self.mock_mode:
+            job_id = uuid4()
+            job_data = {
+                "id": job_id,
+                "article_url": article_url,
+                "title": title,
+                "original_content": None,
+                "script_en": None,
+                "script_ms": None,
+                "video_url_en": None,
+                "video_url_ms": None,
+                "caption_en": None,
+                "caption_ms": None,
+                "languages": languages or ["en"],
+                "platforms": platforms or ["instagram", "facebook"],
+                "status": "pending",
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "approved_at": None,
+                "published_at": None,
+            }
+            self._ondemand_jobs[str(job_id)] = job_data
+            return OnDemandJob(**job_data)
+
+        result = self.client.table("ondemand_jobs").insert({
+            "article_url": article_url,
+            "title": title,
+            "languages": languages or ["en"],
+            "platforms": platforms or ["instagram", "facebook"],
+            "status": "pending",
+        }).execute()
+
+        return OnDemandJob(**result.data[0])
+
+    async def get_ondemand_job(self, job_id: UUID) -> Optional[OnDemandJob]:
+        """Get an on-demand job by ID."""
+        if self.mock_mode:
+            data = self._ondemand_jobs.get(str(job_id))
+            return OnDemandJob(**data) if data else None
+
+        result = self.client.table("ondemand_jobs").select("*").eq(
+            "id", str(job_id)
+        ).execute()
+
+        if result.data:
+            return OnDemandJob(**result.data[0])
+        return None
+
+    async def list_ondemand_jobs(
+        self,
+        status: Optional[str] = None,
+        limit: int = 20,
+    ) -> List[OnDemandJob]:
+        """List on-demand jobs."""
+        if self.mock_mode:
+            jobs = list(self._ondemand_jobs.values())
+            if status:
+                jobs = [j for j in jobs if j["status"] == status]
+            jobs.sort(key=lambda x: x["created_at"], reverse=True)
+            return [OnDemandJob(**j) for j in jobs[:limit]]
+
+        query = self.client.table("ondemand_jobs").select("*")
+
+        if status:
+            query = query.eq("status", status)
+
+        result = query.order(
+            "created_at", desc=True
+        ).limit(limit).execute()
+
+        return [OnDemandJob(**item) for item in result.data]
+
+    async def update_ondemand_status(
+        self,
+        job_id: UUID,
+        status: str,
+        error: Optional[str] = None,
+    ) -> OnDemandJob:
+        """Update on-demand job status."""
+        update_data = {"status": status}
+        if error:
+            update_data["error"] = error
+
+        if self.mock_mode:
+            if str(job_id) in self._ondemand_jobs:
+                self._ondemand_jobs[str(job_id)].update(update_data)
+                return OnDemandJob(**self._ondemand_jobs[str(job_id)])
+            raise ValueError(f"Job {job_id} not found")
+
+        result = self.client.table("ondemand_jobs").update(
+            update_data
+        ).eq("id", str(job_id)).execute()
+
+        return OnDemandJob(**result.data[0])
+
+    async def update_ondemand_scripts(
+        self,
+        job_id: UUID,
+        scripts: dict,
+    ) -> OnDemandJob:
+        """Update on-demand job scripts."""
+        update_data = {}
+        if "en" in scripts:
+            update_data["script_en"] = scripts["en"]
+        if "ms" in scripts:
+            update_data["script_ms"] = scripts["ms"]
+
+        if self.mock_mode:
+            if str(job_id) in self._ondemand_jobs:
+                self._ondemand_jobs[str(job_id)].update(update_data)
+                return OnDemandJob(**self._ondemand_jobs[str(job_id)])
+            raise ValueError(f"Job {job_id} not found")
+
+        result = self.client.table("ondemand_jobs").update(
+            update_data
+        ).eq("id", str(job_id)).execute()
+
+        return OnDemandJob(**result.data[0])
+
+    async def delete_ondemand_job(self, job_id: UUID) -> bool:
+        """Delete an on-demand job."""
+        if self.mock_mode:
+            if str(job_id) in self._ondemand_jobs:
+                del self._ondemand_jobs[str(job_id)]
+                return True
+            return False
+
+        self.client.table("ondemand_jobs").delete().eq(
+            "id", str(job_id)
+        ).execute()
+        return True
+
+    # News Sources
+    async def create_source(self, data: NewsSourceCreate) -> NewsSource:
+        """Create a new news source."""
+        if self.mock_mode:
+            source_id = uuid4()
+            source_data = {
+                "id": source_id,
+                "name": data.name,
+                "source_type": data.source_type,
+                "url": data.url,
+                "category": data.category,
+                "enabled": data.enabled,
+                "created_at": datetime.utcnow(),
+                "updated_at": None,
+            }
+            self._sources[str(source_id)] = source_data
+            return NewsSource(**source_data)
+
+        result = self.client.table("news_sources").insert({
+            "name": data.name,
+            "source_type": data.source_type.value,
+            "url": data.url,
+            "category": data.category,
+            "enabled": data.enabled,
+        }).execute()
+
+        return NewsSource(**result.data[0])
+
+    async def get_source(self, source_id: UUID) -> Optional[NewsSource]:
+        """Get a source by ID."""
+        if self.mock_mode:
+            data = self._sources.get(str(source_id))
+            return NewsSource(**data) if data else None
+
+        result = self.client.table("news_sources").select("*").eq(
+            "id", str(source_id)
+        ).execute()
+
+        if result.data:
+            return NewsSource(**result.data[0])
+        return None
+
+    async def list_sources(
+        self,
+        source_type: Optional[SourceType] = None,
+        enabled: Optional[bool] = None,
+    ) -> List[NewsSource]:
+        """List news sources."""
+        if self.mock_mode:
+            sources = list(self._sources.values())
+            if source_type:
+                sources = [s for s in sources if s["source_type"] == source_type]
+            if enabled is not None:
+                sources = [s for s in sources if s["enabled"] == enabled]
+            sources.sort(key=lambda x: x["created_at"], reverse=True)
+            return [NewsSource(**s) for s in sources]
+
+        query = self.client.table("news_sources").select("*")
+
+        if source_type:
+            query = query.eq("source_type", source_type.value)
+        if enabled is not None:
+            query = query.eq("enabled", enabled)
+
+        result = query.order("created_at", desc=True).execute()
+
+        return [NewsSource(**item) for item in result.data]
+
+    async def update_source(
+        self,
+        source_id: UUID,
+        data: NewsSourceUpdate,
+    ) -> NewsSource:
+        """Update a news source."""
+        update_data = data.model_dump(exclude_none=True)
+
+        if self.mock_mode:
+            if str(source_id) in self._sources:
+                self._sources[str(source_id)].update(update_data)
+                self._sources[str(source_id)]["updated_at"] = datetime.utcnow()
+                return NewsSource(**self._sources[str(source_id)])
+            raise ValueError(f"Source {source_id} not found")
+
+        result = self.client.table("news_sources").update(
+            update_data
+        ).eq("id", str(source_id)).execute()
+
+        return NewsSource(**result.data[0])
+
+    async def delete_source(self, source_id: UUID) -> bool:
+        """Delete a news source."""
+        if self.mock_mode:
+            if str(source_id) in self._sources:
+                del self._sources[str(source_id)]
+                return True
+            return False
+
+        self.client.table("news_sources").delete().eq(
+            "id", str(source_id)
+        ).execute()
+        return True
 
     # Dashboard Stats
     async def get_dashboard_stats(self) -> dict:
