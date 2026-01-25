@@ -1,5 +1,5 @@
-from typing import Optional, List
-from datetime import datetime
+from typing import Optional, List, Any
+from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 import json
 
@@ -15,9 +15,22 @@ from app.models.schemas import (
     PipelineStatus,
 )
 from app.models.sources import OnDemandJob, Language, NewsSource, NewsSourceCreate, NewsSourceUpdate, SourceType
+from app.models.content import (
+    Story,
+    StoryCreate,
+    StoryUpdate,
+    StoryWithAssets,
+    StoryStatus,
+    StoryType,
+    VideoAsset,
+    VideoAssetCreate,
+    PublishRecord,
+    PublishRecordCreate,
+    ContentStats,
+)
 
 # Check if Supabase is configured
-SUPABASE_ENABLED = bool(settings.supabase_url and settings.supabase_key and 
+SUPABASE_ENABLED = bool(settings.supabase_url and settings.supabase_key and
                          not settings.supabase_url.startswith("https://your-"))
 
 if SUPABASE_ENABLED:
@@ -42,6 +55,9 @@ class DatabaseService:
             self._posts: dict = {}
             self._ondemand_jobs: dict = {}
             self._sources: dict = {}
+            self._stories: dict = {}
+            self._video_assets: dict = {}
+            self._publish_records: dict = {}
 
     # Weekly Briefings
     async def create_briefing(self, data: WeeklyBriefingCreate) -> WeeklyBriefing:
@@ -105,8 +121,11 @@ class DatabaseService:
             return WeeklyBriefing(**result.data[0])
         return None
 
-    async def get_briefing_by_week(self, year: int, week: int) -> Optional[WeeklyBriefing]:
-        thread_id = f"{year}-W{week:02d}"
+    async def get_briefing_by_week(self, year: int, week: int, language_code: Optional[str] = None) -> Optional[WeeklyBriefing]:
+        if language_code:
+            thread_id = f"{year}-W{week:02d}-{language_code}"
+        else:
+            thread_id = f"{year}-W{week:02d}"
         return await self.get_briefing_by_thread(thread_id)
 
     async def update_briefing(
@@ -635,6 +654,450 @@ class DatabaseService:
             "total_videos": videos.count or 0,
             "total_posts": posts.count or 0,
         }
+
+    # ==================
+    # Content Library - Stories
+    # ==================
+
+    async def list_stories(
+        self,
+        status: Optional[StoryStatus] = None,
+        story_type: Optional[StoryType] = None,
+        tag: Optional[str] = None,
+        search: Optional[str] = None,
+        featured: Optional[bool] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[StoryWithAssets]:
+        if self.mock_mode:
+            stories = list(self._stories.values())
+            if status:
+                stories = [s for s in stories if s.get("status") == status.value]
+            if story_type:
+                stories = [s for s in stories if s.get("story_type") == story_type.value]
+            if featured is not None:
+                stories = [s for s in stories if s.get("featured") == featured]
+            if tag:
+                stories = [s for s in stories if tag in s.get("tags", [])]
+            if search:
+                search_lower = search.lower()
+                stories = [s for s in stories if search_lower in s.get("title", "").lower() or search_lower in (s.get("description") or "").lower()]
+            stories.sort(key=lambda x: x["created_at"], reverse=True)
+            result_stories = []
+            for item in stories[offset:offset + limit]:
+                story = StoryWithAssets(**item, videos=[], publish_records=[])
+                story.videos = await self.list_videos_by_story(story.id)
+                story.publish_records = await self.list_publish_records_by_story(story.id)
+                result_stories.append(story)
+            return result_stories
+
+        query = self.client.table("stories").select("*")
+
+        if status:
+            query = query.eq("status", status.value)
+        if story_type:
+            query = query.eq("story_type", story_type.value)
+        if featured is not None:
+            query = query.eq("featured", featured)
+        if tag:
+            query = query.contains("tags", [tag])
+        if search:
+            query = query.or_(f"title.ilike.%{search}%,description.ilike.%{search}%")
+
+        result = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+
+        stories = []
+        for item in result.data:
+            story = StoryWithAssets(**item, videos=[], publish_records=[])
+            # Get videos and publish records
+            videos = await self.list_videos_by_story(story.id)
+            records = await self.list_publish_records_by_story(story.id)
+            story.videos = videos
+            story.publish_records = records
+            stories.append(story)
+
+        return stories
+
+    async def create_story(self, data: StoryCreate) -> Story:
+        if self.mock_mode:
+            story_id = uuid4()
+            story_data = {
+                "id": story_id,
+                "title": data.title,
+                "description": data.description,
+                "source_url": data.source_url,
+                "story_type": data.story_type.value,
+                "status": StoryStatus.DRAFT.value,
+                "tags": data.tags,
+                "featured": False,
+                "script_en": None,
+                "script_ms": None,
+                "thumbnail_url": None,
+                "briefing_id": None,
+                "ondemand_job_id": None,
+                "created_at": datetime.utcnow(),
+                "updated_at": None,
+                "published_at": None,
+            }
+            self._stories[str(story_id)] = story_data
+            return Story(**story_data)
+
+        insert_data = {
+            "title": data.title,
+            "description": data.description,
+            "source_url": data.source_url,
+            "story_type": data.story_type.value,
+            "status": StoryStatus.DRAFT.value,
+            "tags": data.tags,
+            "featured": False,
+        }
+
+        result = self.client.table("stories").insert(insert_data).execute()
+        return Story(**result.data[0])
+
+    async def get_story(self, story_id: UUID) -> Optional[Story]:
+        if self.mock_mode:
+            data = self._stories.get(str(story_id))
+            return Story(**data) if data else None
+
+        result = self.client.table("stories").select("*").eq("id", str(story_id)).execute()
+        if result.data:
+            return Story(**result.data[0])
+        return None
+
+    async def get_story_with_assets(self, story_id: UUID) -> Optional[StoryWithAssets]:
+        if self.mock_mode:
+            data = self._stories.get(str(story_id))
+            if not data:
+                return None
+            story = StoryWithAssets(**data, videos=[], publish_records=[])
+            story.videos = await self.list_videos_by_story(story_id)
+            story.publish_records = await self.list_publish_records_by_story(story_id)
+            return story
+
+        result = self.client.table("stories").select("*").eq("id", str(story_id)).execute()
+        if not result.data:
+            return None
+
+        story = StoryWithAssets(**result.data[0], videos=[], publish_records=[])
+        story.videos = await self.list_videos_by_story(story_id)
+        story.publish_records = await self.list_publish_records_by_story(story_id)
+        return story
+
+    async def update_story(self, story_id: UUID, data: StoryUpdate) -> Story:
+        update_data = data.model_dump(exclude_none=True)
+
+        if "status" in update_data and isinstance(update_data["status"], StoryStatus):
+            update_data["status"] = update_data["status"].value
+
+        if self.mock_mode:
+            if str(story_id) in self._stories:
+                self._stories[str(story_id)].update(update_data)
+                self._stories[str(story_id)]["updated_at"] = datetime.utcnow()
+                return Story(**self._stories[str(story_id)])
+            raise ValueError(f"Story {story_id} not found")
+
+        update_data["updated_at"] = datetime.utcnow().isoformat()
+
+        result = self.client.table("stories").update(update_data).eq("id", str(story_id)).execute()
+        return Story(**result.data[0])
+
+    async def update_story_scripts(
+        self,
+        story_id: UUID,
+        script_en: Optional[str] = None,
+        script_ms: Optional[str] = None,
+    ) -> Story:
+        update_data = {}
+        if script_en is not None:
+            update_data["script_en"] = script_en
+        if script_ms is not None:
+            update_data["script_ms"] = script_ms
+
+        if self.mock_mode:
+            if str(story_id) in self._stories:
+                self._stories[str(story_id)].update(update_data)
+                self._stories[str(story_id)]["updated_at"] = datetime.utcnow()
+                return Story(**self._stories[str(story_id)])
+            raise ValueError(f"Story {story_id} not found")
+
+        update_data["updated_at"] = datetime.utcnow().isoformat()
+
+        result = self.client.table("stories").update(update_data).eq("id", str(story_id)).execute()
+        return Story(**result.data[0])
+
+    async def delete_story(self, story_id: UUID) -> None:
+        if self.mock_mode:
+            # Delete related records first
+            self._publish_records = {k: v for k, v in self._publish_records.items() if v.get("story_id") != story_id}
+            self._video_assets = {k: v for k, v in self._video_assets.items() if v.get("story_id") != story_id}
+            if str(story_id) in self._stories:
+                del self._stories[str(story_id)]
+            return
+
+        # Delete related records first
+        self.client.table("publish_records").delete().eq("story_id", str(story_id)).execute()
+        self.client.table("video_assets").delete().eq("story_id", str(story_id)).execute()
+        self.client.table("stories").delete().eq("id", str(story_id)).execute()
+
+    async def link_briefing_to_story(self, briefing_id: UUID, story_id: UUID) -> None:
+        if self.mock_mode:
+            if str(story_id) in self._stories:
+                self._stories[str(story_id)]["briefing_id"] = briefing_id
+                self._stories[str(story_id)]["updated_at"] = datetime.utcnow()
+            return
+
+        self.client.table("stories").update({
+            "briefing_id": str(briefing_id),
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", str(story_id)).execute()
+
+    async def link_ondemand_to_story(self, job_id: UUID, story_id: UUID) -> None:
+        if self.mock_mode:
+            if str(story_id) in self._stories:
+                self._stories[str(story_id)]["ondemand_job_id"] = job_id
+                self._stories[str(story_id)]["updated_at"] = datetime.utcnow()
+            return
+
+        self.client.table("stories").update({
+            "ondemand_job_id": str(job_id),
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", str(story_id)).execute()
+
+    # ==================
+    # Content Library - Video Assets
+    # ==================
+
+    async def list_videos_by_story(self, story_id: UUID) -> List[VideoAsset]:
+        if self.mock_mode:
+            videos = [v for v in self._video_assets.values() if v.get("story_id") == story_id]
+            videos.sort(key=lambda x: x["created_at"], reverse=True)
+            return [VideoAsset(**v) for v in videos]
+
+        result = self.client.table("video_assets").select("*").eq(
+            "story_id", str(story_id)
+        ).order("created_at", desc=True).execute()
+
+        return [VideoAsset(**item) for item in result.data]
+
+    async def create_video_asset(self, data: VideoAssetCreate) -> VideoAsset:
+        if self.mock_mode:
+            video_id = uuid4()
+            video_data = {
+                "id": video_id,
+                "story_id": data.story_id,
+                "language": data.language,
+                "video_url": data.video_url,
+                "thumbnail_url": data.thumbnail_url,
+                "duration_seconds": data.duration_seconds,
+                "heygen_video_id": data.heygen_video_id,
+                "file_size_bytes": None,
+                "resolution": None,
+                "format": None,
+                "created_at": datetime.utcnow(),
+            }
+            self._video_assets[str(video_id)] = video_data
+            return VideoAsset(**video_data)
+
+        insert_data = {
+            "story_id": str(data.story_id),
+            "language": data.language,
+            "video_url": data.video_url,
+            "thumbnail_url": data.thumbnail_url,
+            "duration_seconds": data.duration_seconds,
+            "heygen_video_id": data.heygen_video_id,
+        }
+
+        result = self.client.table("video_assets").insert(insert_data).execute()
+        return VideoAsset(**result.data[0])
+
+    async def delete_video_asset(self, video_id: UUID) -> None:
+        if self.mock_mode:
+            # Delete related publish records first
+            self._publish_records = {k: v for k, v in self._publish_records.items() if v.get("video_id") != video_id}
+            if str(video_id) in self._video_assets:
+                del self._video_assets[str(video_id)]
+            return
+
+        # Delete related publish records first
+        self.client.table("publish_records").delete().eq("video_id", str(video_id)).execute()
+        self.client.table("video_assets").delete().eq("id", str(video_id)).execute()
+
+    # ==================
+    # Content Library - Publish Records
+    # ==================
+
+    async def list_publish_records_by_story(self, story_id: UUID) -> List[PublishRecord]:
+        if self.mock_mode:
+            records = [r for r in self._publish_records.values() if r.get("story_id") == story_id]
+            records.sort(key=lambda x: x["created_at"], reverse=True)
+            return [PublishRecord(**r) for r in records]
+
+        result = self.client.table("publish_records").select("*").eq(
+            "story_id", str(story_id)
+        ).order("created_at", desc=True).execute()
+
+        return [PublishRecord(**item) for item in result.data]
+
+    async def create_publish_record(self, data: PublishRecordCreate) -> PublishRecord:
+        if self.mock_mode:
+            record_id = uuid4()
+            record_data = {
+                "id": record_id,
+                "story_id": data.story_id,
+                "video_id": data.video_id,
+                "platform": data.platform.value if hasattr(data.platform, 'value') else data.platform,
+                "language": data.language,
+                "caption": data.caption,
+                "post_url": None,
+                "post_id": None,
+                "status": "pending",
+                "error": None,
+                "scheduled_at": data.scheduled_at,
+                "published_at": None,
+                "created_at": datetime.utcnow(),
+            }
+            self._publish_records[str(record_id)] = record_data
+            return PublishRecord(**record_data)
+
+        insert_data = {
+            "story_id": str(data.story_id),
+            "video_id": str(data.video_id),
+            "platform": data.platform.value if hasattr(data.platform, 'value') else data.platform,
+            "language": data.language,
+            "caption": data.caption,
+            "scheduled_at": data.scheduled_at.isoformat() if data.scheduled_at else None,
+            "status": "pending",
+        }
+
+        result = self.client.table("publish_records").insert(insert_data).execute()
+        return PublishRecord(**result.data[0])
+
+    async def update_publish_record(self, record_id: UUID, updates: dict) -> PublishRecord:
+        if self.mock_mode:
+            if str(record_id) in self._publish_records:
+                self._publish_records[str(record_id)].update(updates)
+                return PublishRecord(**self._publish_records[str(record_id)])
+            raise ValueError(f"Publish record {record_id} not found")
+
+        if "published_at" in updates and isinstance(updates["published_at"], datetime):
+            updates["published_at"] = updates["published_at"].isoformat()
+
+        result = self.client.table("publish_records").update(updates).eq("id", str(record_id)).execute()
+        return PublishRecord(**result.data[0])
+
+    # ==================
+    # Content Library - Stats & Tags
+    # ==================
+
+    async def get_content_stats(self) -> ContentStats:
+        if self.mock_mode:
+            stories = list(self._stories.values())
+            stories_by_status = {}
+            stories_by_type = {}
+            for s in stories:
+                status = s.get("status", "draft")
+                stype = s.get("story_type", "manual")
+                stories_by_status[status] = stories_by_status.get(status, 0) + 1
+                stories_by_type[stype] = stories_by_type.get(stype, 0) + 1
+
+            videos = list(self._video_assets.values())
+            videos_by_language = {}
+            for v in videos:
+                lang = v.get("language", "en")
+                videos_by_language[lang] = videos_by_language.get(lang, 0) + 1
+
+            records = list(self._publish_records.values())
+            published_by_platform = {}
+            total_published = 0
+            for r in records:
+                if r.get("status") == "published":
+                    platform = r.get("platform", "unknown")
+                    published_by_platform[platform] = published_by_platform.get(platform, 0) + 1
+                    total_published += 1
+
+            now = datetime.utcnow()
+            week_ago = now - timedelta(days=7)
+            month_ago = now - timedelta(days=30)
+            this_week = len([s for s in stories if s.get("created_at", now) >= week_ago])
+            this_month = len([s for s in stories if s.get("created_at", now) >= month_ago])
+
+            return ContentStats(
+                total_stories=len(stories),
+                stories_by_status=stories_by_status,
+                stories_by_type=stories_by_type,
+                total_videos=len(videos),
+                videos_by_language=videos_by_language,
+                total_published=total_published,
+                published_by_platform=published_by_platform,
+                this_week=this_week,
+                this_month=this_month,
+            )
+
+        # Get story counts
+        stories = self.client.table("stories").select("status, story_type", count="exact").execute()
+
+        stories_by_status = {}
+        stories_by_type = {}
+        for s in stories.data:
+            status = s["status"]
+            stype = s["story_type"]
+            stories_by_status[status] = stories_by_status.get(status, 0) + 1
+            stories_by_type[stype] = stories_by_type.get(stype, 0) + 1
+
+        # Get video counts
+        videos = self.client.table("video_assets").select("language", count="exact").execute()
+        videos_by_language = {}
+        for v in videos.data:
+            lang = v["language"]
+            videos_by_language[lang] = videos_by_language.get(lang, 0) + 1
+
+        # Get publish counts
+        publishes = self.client.table("publish_records").select("platform, status", count="exact").execute()
+        published_by_platform = {}
+        total_published = 0
+        for p in publishes.data:
+            if p["status"] == "published":
+                platform = p["platform"]
+                published_by_platform[platform] = published_by_platform.get(platform, 0) + 1
+                total_published += 1
+
+        # Get recent counts
+        now = datetime.utcnow()
+        week_ago = (now - timedelta(days=7)).isoformat()
+        month_ago = (now - timedelta(days=30)).isoformat()
+
+        this_week = self.client.table("stories").select("id", count="exact").gte("created_at", week_ago).execute()
+        this_month = self.client.table("stories").select("id", count="exact").gte("created_at", month_ago).execute()
+
+        return ContentStats(
+            total_stories=stories.count or 0,
+            stories_by_status=stories_by_status,
+            stories_by_type=stories_by_type,
+            total_videos=videos.count or 0,
+            videos_by_language=videos_by_language,
+            total_published=total_published,
+            published_by_platform=published_by_platform,
+            this_week=this_week.count or 0,
+            this_month=this_month.count or 0,
+        )
+
+    async def get_all_tags(self) -> List[str]:
+        if self.mock_mode:
+            all_tags = set()
+            for story in self._stories.values():
+                if story.get("tags"):
+                    all_tags.update(story["tags"])
+            return sorted(list(all_tags))
+
+        result = self.client.table("stories").select("tags").execute()
+
+        all_tags = set()
+        for item in result.data:
+            if item.get("tags"):
+                all_tags.update(item["tags"])
+
+        return sorted(list(all_tags))
 
 
 _db_service: Optional[DatabaseService] = None
