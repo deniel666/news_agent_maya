@@ -16,12 +16,40 @@ async def lifespan(app: FastAPI):
     print(f"Starting Maya AI News Anchor v1.0.0")
     print(f"Environment: {'Debug' if settings.debug else 'Production'}")
 
+    # Initialize MCP servers if enabled
+    if settings.mcp_enabled:
+        try:
+            from app.mcp.registry import get_mcp_registry
+            from app.mcp.defaults import DEFAULT_MCP_SERVERS
+
+            mcp_registry = get_mcp_registry()
+
+            # Register default MCP servers
+            for server_config in DEFAULT_MCP_SERVERS:
+                mcp_registry.register_server(server_config)
+
+            print(f"Registered {len(DEFAULT_MCP_SERVERS)} MCP servers")
+
+            # Start enabled servers (in background)
+            await mcp_registry.startup()
+        except Exception as e:
+            print(f"Warning: MCP initialization failed: {e}")
+
     yield
 
     # Shutdown
     print("Shutting down Maya AI News Anchor")
 
-    # Cleanup resources
+    # Cleanup MCP resources
+    if settings.mcp_enabled:
+        try:
+            from app.mcp.registry import get_mcp_registry
+            mcp_registry = get_mcp_registry()
+            await mcp_registry.shutdown()
+        except Exception as e:
+            print(f"Warning: MCP shutdown error: {e}")
+
+    # Cleanup news aggregator
     from app.services.news_aggregator import get_news_aggregator
     aggregator = get_news_aggregator()
     await aggregator.close()

@@ -35,6 +35,7 @@ class NewsArticle(BaseModel):
 class WeeklyBriefingCreate(BaseModel):
     year: int
     week_number: int
+    language_code: str = "en-SG"
 
 
 class WeeklyBriefingUpdate(BaseModel):
@@ -46,6 +47,8 @@ class WeeklyBriefingUpdate(BaseModel):
     script_approved_at: Optional[datetime] = None
     video_approved_at: Optional[datetime] = None
     published_at: Optional[datetime] = None
+    language_code: Optional[str] = None
+    requires_external_review: Optional[bool] = None
 
 
 class WeeklyBriefing(BaseModel):
@@ -62,6 +65,8 @@ class WeeklyBriefing(BaseModel):
     script_approved_at: Optional[datetime] = None
     video_approved_at: Optional[datetime] = None
     published_at: Optional[datetime] = None
+    language_code: str = "en-SG"
+    requires_external_review: bool = False
 
     class Config:
         from_attributes = True
@@ -133,6 +138,9 @@ class BriefingState(BaseModel):
     thread_id: Optional[str] = None
     status: PipelineStatus = PipelineStatus.AGGREGATING
     error: Optional[str] = None
+    # Language support
+    language_code: str = "en-SG"
+    requires_external_review: bool = False
 
 
 class DashboardStats(BaseModel):
@@ -149,3 +157,35 @@ class NewsSource(BaseModel):
     url_or_channel: str
     enabled: bool = True
     category: Optional[str] = None
+
+
+class VideoLocalizationCreate(BaseModel):
+    """Create a video localization for a briefing."""
+    briefing_id: UUID
+    language_code: str
+    script: Optional[str] = None
+
+
+class VideoLocalization(BaseModel):
+    """Video localization for multi-language support."""
+    id: UUID
+    briefing_id: UUID
+    language_code: str
+    script: Optional[str] = None
+    video_url: Optional[str] = None
+    status: str = "draft"
+    requires_review: bool = False
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LanguageInfo(BaseModel):
+    """Language information for API responses."""
+    code: str
+    name: str
+    locale: str
+    requires_external_review: bool = False

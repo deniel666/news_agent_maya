@@ -34,12 +34,25 @@ class HeyGenClient:
         script: str,
         avatar_id: Optional[str] = None,
         voice_id: Optional[str] = None,
+        locale: str = "en-SG",
+        speed: float = 1.0,
         background_color: str = "#1a1a2e",
         aspect_ratio: str = "9:16",
     ) -> Dict[str, Any]:
         """
         Generate a video with the given script.
-        Returns video_id for tracking.
+
+        Args:
+            script: The text script for the avatar to speak
+            avatar_id: HeyGen avatar ID (defaults to Maya)
+            voice_id: HeyGen voice ID (defaults to Maya's voice)
+            locale: Voice locale for accent (e.g., 'en-SG', 'ms-MY', 'en-MY')
+            speed: Speech speed multiplier (0.5 to 2.0)
+            background_color: Hex color for background
+            aspect_ratio: Video aspect ratio
+
+        Returns:
+            Dict with video_id and status
         """
         avatar_id = avatar_id or self.avatar_id
         voice_id = voice_id or self.voice_id
@@ -63,7 +76,8 @@ class HeyGenClient:
                     "type": "text",
                     "input_text": script,
                     "voice_id": voice_id,
-                    "speed": 1.0
+                    "locale": locale,
+                    "speed": speed
                 },
                 "background": {
                     "type": "color",
