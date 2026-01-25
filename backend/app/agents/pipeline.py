@@ -29,8 +29,8 @@ class MayaPipeline:
     """Maya AI News Anchor pipeline orchestrator."""
 
     def __init__(self):
-        self.graph = self._build_graph()
         self.checkpointer = MemorySaver()
+        self.graph = self._build_graph()
 
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph workflow."""

@@ -2,6 +2,9 @@ from supabase import create_client, Client
 from typing import Optional, List, Any
 from datetime import datetime, timedelta
 from uuid import UUID
+from typing import Optional, List
+from datetime import datetime
+from uuid import UUID, uuid4
 import json
 
 from app.core.config import settings
@@ -28,18 +31,59 @@ from app.models.content import (
     PublishRecordCreate,
     ContentStats,
 )
+from app.models.sources import OnDemandJob, Language, NewsSource, NewsSourceCreate, NewsSourceUpdate, SourceType
+
+# Check if Supabase is configured
+SUPABASE_ENABLED = bool(settings.supabase_url and settings.supabase_key and 
+                         not settings.supabase_url.startswith("https://your-"))
+
+if SUPABASE_ENABLED:
+    from supabase import create_client, Client
 
 
 class DatabaseService:
     def __init__(self):
-        self.client: Client = create_client(
-            settings.supabase_url,
-            settings.supabase_key
-        )
+        if SUPABASE_ENABLED:
+            self.client: Client = create_client(
+                settings.supabase_url,
+                settings.supabase_key
+            )
+            self.mock_mode = False
+        else:
+            print("⚠️  Supabase not configured - running in mock mode")
+            self.client = None
+            self.mock_mode = True
+            # In-memory storage for mock mode
+            self._briefings: dict = {}
+            self._videos: dict = {}
+            self._posts: dict = {}
+            self._ondemand_jobs: dict = {}
+            self._sources: dict = {}
 
     # Weekly Briefings
     async def create_briefing(self, data: WeeklyBriefingCreate) -> WeeklyBriefing:
         thread_id = f"{data.year}-W{data.week_number:02d}"
+
+        if self.mock_mode:
+            briefing_id = uuid4()
+            briefing_data = {
+                "id": briefing_id,
+                "thread_id": thread_id,
+                "year": data.year,
+                "week_number": data.week_number,
+                "status": PipelineStatus.AGGREGATING,
+                "raw_news": None,
+                "synthesized_script": None,
+                "final_caption": None,
+                "approved_script": False,
+                "approved_video": False,
+                "script_feedback": None,
+                "video_feedback": None,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+            }
+            self._briefings[str(briefing_id)] = briefing_data
+            return WeeklyBriefing(**briefing_data)
 
         result = self.client.table("weekly_briefings").insert({
             "thread_id": thread_id,
@@ -51,6 +95,10 @@ class DatabaseService:
         return WeeklyBriefing(**result.data[0])
 
     async def get_briefing(self, briefing_id: UUID) -> Optional[WeeklyBriefing]:
+        if self.mock_mode:
+            data = self._briefings.get(str(briefing_id))
+            return WeeklyBriefing(**data) if data else None
+
         result = self.client.table("weekly_briefings").select("*").eq(
             "id", str(briefing_id)
         ).execute()
@@ -60,6 +108,12 @@ class DatabaseService:
         return None
 
     async def get_briefing_by_thread(self, thread_id: str) -> Optional[WeeklyBriefing]:
+        if self.mock_mode:
+            for data in self._briefings.values():
+                if data["thread_id"] == thread_id:
+                    return WeeklyBriefing(**data)
+            return None
+
         result = self.client.table("weekly_briefings").select("*").eq(
             "thread_id", thread_id
         ).execute()
@@ -77,6 +131,13 @@ class DatabaseService:
     ) -> WeeklyBriefing:
         update_data = data.model_dump(exclude_none=True)
 
+        if self.mock_mode:
+            if str(briefing_id) in self._briefings:
+                self._briefings[str(briefing_id)].update(update_data)
+                self._briefings[str(briefing_id)]["updated_at"] = datetime.utcnow()
+                return WeeklyBriefing(**self._briefings[str(briefing_id)])
+            raise ValueError(f"Briefing {briefing_id} not found")
+
         if "status" in update_data:
             update_data["status"] = update_data["status"].value
 
@@ -92,6 +153,13 @@ class DatabaseService:
         offset: int = 0,
         status: Optional[PipelineStatus] = None,
     ) -> List[WeeklyBriefing]:
+        if self.mock_mode:
+            briefings = list(self._briefings.values())
+            if status:
+                briefings = [b for b in briefings if b["status"] == status]
+            briefings.sort(key=lambda x: x["created_at"], reverse=True)
+            return [WeeklyBriefing(**b) for b in briefings[offset:offset + limit]]
+
         query = self.client.table("weekly_briefings").select("*")
 
         if status:
@@ -104,6 +172,18 @@ class DatabaseService:
         return [WeeklyBriefing(**item) for item in result.data]
 
     async def get_pending_approvals(self) -> List[WeeklyBriefing]:
+        if self.mock_mode:
+            pending_statuses = [
+                PipelineStatus.AWAITING_SCRIPT_APPROVAL,
+                PipelineStatus.AWAITING_VIDEO_APPROVAL,
+            ]
+            briefings = [
+                b for b in self._briefings.values()
+                if b["status"] in pending_statuses
+            ]
+            briefings.sort(key=lambda x: x["created_at"], reverse=True)
+            return [WeeklyBriefing(**b) for b in briefings]
+
         result = self.client.table("weekly_briefings").select("*").in_(
             "status", [
                 PipelineStatus.AWAITING_SCRIPT_APPROVAL.value,
@@ -115,6 +195,21 @@ class DatabaseService:
 
     # Weekly Videos
     async def create_video(self, data: WeeklyVideoCreate) -> WeeklyVideo:
+        if self.mock_mode:
+            video_id = uuid4()
+            video_data = {
+                "id": video_id,
+                "briefing_id": data.briefing_id,
+                "heygen_video_id": data.heygen_video_id,
+                "video_url": None,
+                "status": "queued",
+                "duration_seconds": None,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+            }
+            self._videos[str(video_id)] = video_data
+            return WeeklyVideo(**video_data)
+
         result = self.client.table("weekly_videos").insert({
             "briefing_id": str(data.briefing_id),
             "heygen_video_id": data.heygen_video_id,
@@ -124,6 +219,10 @@ class DatabaseService:
         return WeeklyVideo(**result.data[0])
 
     async def get_video(self, video_id: UUID) -> Optional[WeeklyVideo]:
+        if self.mock_mode:
+            data = self._videos.get(str(video_id))
+            return WeeklyVideo(**data) if data else None
+
         result = self.client.table("weekly_videos").select("*").eq(
             "id", str(video_id)
         ).execute()
@@ -133,6 +232,13 @@ class DatabaseService:
         return None
 
     async def get_video_by_briefing(self, briefing_id: UUID) -> Optional[WeeklyVideo]:
+        if self.mock_mode:
+            videos = [v for v in self._videos.values() if v["briefing_id"] == briefing_id]
+            if videos:
+                videos.sort(key=lambda x: x["created_at"], reverse=True)
+                return WeeklyVideo(**videos[0])
+            return None
+
         result = self.client.table("weekly_videos").select("*").eq(
             "briefing_id", str(briefing_id)
         ).order("created_at", desc=True).limit(1).execute()
@@ -156,6 +262,13 @@ class DatabaseService:
         if duration_seconds:
             update_data["duration_seconds"] = duration_seconds
 
+        if self.mock_mode:
+            if str(video_id) in self._videos:
+                self._videos[str(video_id)].update(update_data)
+                self._videos[str(video_id)]["updated_at"] = datetime.utcnow()
+                return WeeklyVideo(**self._videos[str(video_id)])
+            raise ValueError(f"Video {video_id} not found")
+
         result = self.client.table("weekly_videos").update(
             update_data
         ).eq("id", str(video_id)).execute()
@@ -163,6 +276,11 @@ class DatabaseService:
         return WeeklyVideo(**result.data[0])
 
     async def list_videos(self, limit: int = 20) -> List[WeeklyVideo]:
+        if self.mock_mode:
+            videos = list(self._videos.values())
+            videos.sort(key=lambda x: x["created_at"], reverse=True)
+            return [WeeklyVideo(**v) for v in videos[:limit]]
+
         result = self.client.table("weekly_videos").select("*").order(
             "created_at", desc=True
         ).limit(limit).execute()
@@ -171,6 +289,21 @@ class DatabaseService:
 
     # Social Posts
     async def create_post(self, data: SocialPostCreate) -> SocialPost:
+        if self.mock_mode:
+            post_id = uuid4()
+            post_data = {
+                "id": post_id,
+                "video_id": data.video_id,
+                "platform": data.platform,
+                "caption": data.caption,
+                "post_url": None,
+                "status": "draft",
+                "published_at": None,
+                "created_at": datetime.utcnow(),
+            }
+            self._posts[str(post_id)] = post_data
+            return SocialPost(**post_data)
+
         result = self.client.table("social_posts").insert({
             "video_id": str(data.video_id),
             "platform": data.platform,
@@ -193,6 +326,15 @@ class DatabaseService:
         if post_url:
             update_data["post_url"] = post_url
         if published_at:
+            update_data["published_at"] = published_at
+
+        if self.mock_mode:
+            if str(post_id) in self._posts:
+                self._posts[str(post_id)].update(update_data)
+                return SocialPost(**self._posts[str(post_id)])
+            raise ValueError(f"Post {post_id} not found")
+
+        if published_at:
             update_data["published_at"] = published_at.isoformat()
 
         result = self.client.table("social_posts").update(
@@ -202,14 +344,282 @@ class DatabaseService:
         return SocialPost(**result.data[0])
 
     async def get_posts_by_video(self, video_id: UUID) -> List[SocialPost]:
+        if self.mock_mode:
+            posts = [p for p in self._posts.values() if p["video_id"] == video_id]
+            return [SocialPost(**p) for p in posts]
+
         result = self.client.table("social_posts").select("*").eq(
             "video_id", str(video_id)
         ).execute()
 
         return [SocialPost(**item) for item in result.data]
 
+    # On-Demand Jobs
+    async def create_ondemand_job(
+        self,
+        article_url: str,
+        title: Optional[str] = None,
+        languages: Optional[List[str]] = None,
+        platforms: Optional[List[str]] = None,
+    ) -> OnDemandJob:
+        """Create a new on-demand job."""
+        if self.mock_mode:
+            job_id = uuid4()
+            job_data = {
+                "id": job_id,
+                "article_url": article_url,
+                "title": title,
+                "original_content": None,
+                "script_en": None,
+                "script_ms": None,
+                "video_url_en": None,
+                "video_url_ms": None,
+                "caption_en": None,
+                "caption_ms": None,
+                "languages": languages or ["en"],
+                "platforms": platforms or ["instagram", "facebook"],
+                "status": "pending",
+                "error": None,
+                "created_at": datetime.utcnow(),
+                "approved_at": None,
+                "published_at": None,
+            }
+            self._ondemand_jobs[str(job_id)] = job_data
+            return OnDemandJob(**job_data)
+
+        result = self.client.table("ondemand_jobs").insert({
+            "article_url": article_url,
+            "title": title,
+            "languages": languages or ["en"],
+            "platforms": platforms or ["instagram", "facebook"],
+            "status": "pending",
+        }).execute()
+
+        return OnDemandJob(**result.data[0])
+
+    async def get_ondemand_job(self, job_id: UUID) -> Optional[OnDemandJob]:
+        """Get an on-demand job by ID."""
+        if self.mock_mode:
+            data = self._ondemand_jobs.get(str(job_id))
+            return OnDemandJob(**data) if data else None
+
+        result = self.client.table("ondemand_jobs").select("*").eq(
+            "id", str(job_id)
+        ).execute()
+
+        if result.data:
+            return OnDemandJob(**result.data[0])
+        return None
+
+    async def list_ondemand_jobs(
+        self,
+        status: Optional[str] = None,
+        limit: int = 20,
+    ) -> List[OnDemandJob]:
+        """List on-demand jobs."""
+        if self.mock_mode:
+            jobs = list(self._ondemand_jobs.values())
+            if status:
+                jobs = [j for j in jobs if j["status"] == status]
+            jobs.sort(key=lambda x: x["created_at"], reverse=True)
+            return [OnDemandJob(**j) for j in jobs[:limit]]
+
+        query = self.client.table("ondemand_jobs").select("*")
+
+        if status:
+            query = query.eq("status", status)
+
+        result = query.order(
+            "created_at", desc=True
+        ).limit(limit).execute()
+
+        return [OnDemandJob(**item) for item in result.data]
+
+    async def update_ondemand_status(
+        self,
+        job_id: UUID,
+        status: str,
+        error: Optional[str] = None,
+    ) -> OnDemandJob:
+        """Update on-demand job status."""
+        update_data = {"status": status}
+        if error:
+            update_data["error"] = error
+
+        if self.mock_mode:
+            if str(job_id) in self._ondemand_jobs:
+                self._ondemand_jobs[str(job_id)].update(update_data)
+                return OnDemandJob(**self._ondemand_jobs[str(job_id)])
+            raise ValueError(f"Job {job_id} not found")
+
+        result = self.client.table("ondemand_jobs").update(
+            update_data
+        ).eq("id", str(job_id)).execute()
+
+        return OnDemandJob(**result.data[0])
+
+    async def update_ondemand_scripts(
+        self,
+        job_id: UUID,
+        scripts: dict,
+    ) -> OnDemandJob:
+        """Update on-demand job scripts."""
+        update_data = {}
+        if "en" in scripts:
+            update_data["script_en"] = scripts["en"]
+        if "ms" in scripts:
+            update_data["script_ms"] = scripts["ms"]
+
+        if self.mock_mode:
+            if str(job_id) in self._ondemand_jobs:
+                self._ondemand_jobs[str(job_id)].update(update_data)
+                return OnDemandJob(**self._ondemand_jobs[str(job_id)])
+            raise ValueError(f"Job {job_id} not found")
+
+        result = self.client.table("ondemand_jobs").update(
+            update_data
+        ).eq("id", str(job_id)).execute()
+
+        return OnDemandJob(**result.data[0])
+
+    async def delete_ondemand_job(self, job_id: UUID) -> bool:
+        """Delete an on-demand job."""
+        if self.mock_mode:
+            if str(job_id) in self._ondemand_jobs:
+                del self._ondemand_jobs[str(job_id)]
+                return True
+            return False
+
+        self.client.table("ondemand_jobs").delete().eq(
+            "id", str(job_id)
+        ).execute()
+        return True
+
+    # News Sources
+    async def create_source(self, data: NewsSourceCreate) -> NewsSource:
+        """Create a new news source."""
+        if self.mock_mode:
+            source_id = uuid4()
+            source_data = {
+                "id": source_id,
+                "name": data.name,
+                "source_type": data.source_type,
+                "url": data.url,
+                "category": data.category,
+                "enabled": data.enabled,
+                "created_at": datetime.utcnow(),
+                "updated_at": None,
+            }
+            self._sources[str(source_id)] = source_data
+            return NewsSource(**source_data)
+
+        result = self.client.table("news_sources").insert({
+            "name": data.name,
+            "source_type": data.source_type.value,
+            "url": data.url,
+            "category": data.category,
+            "enabled": data.enabled,
+        }).execute()
+
+        return NewsSource(**result.data[0])
+
+    async def get_source(self, source_id: UUID) -> Optional[NewsSource]:
+        """Get a source by ID."""
+        if self.mock_mode:
+            data = self._sources.get(str(source_id))
+            return NewsSource(**data) if data else None
+
+        result = self.client.table("news_sources").select("*").eq(
+            "id", str(source_id)
+        ).execute()
+
+        if result.data:
+            return NewsSource(**result.data[0])
+        return None
+
+    async def list_sources(
+        self,
+        source_type: Optional[SourceType] = None,
+        enabled: Optional[bool] = None,
+    ) -> List[NewsSource]:
+        """List news sources."""
+        if self.mock_mode:
+            sources = list(self._sources.values())
+            if source_type:
+                sources = [s for s in sources if s["source_type"] == source_type]
+            if enabled is not None:
+                sources = [s for s in sources if s["enabled"] == enabled]
+            sources.sort(key=lambda x: x["created_at"], reverse=True)
+            return [NewsSource(**s) for s in sources]
+
+        query = self.client.table("news_sources").select("*")
+
+        if source_type:
+            query = query.eq("source_type", source_type.value)
+        if enabled is not None:
+            query = query.eq("enabled", enabled)
+
+        result = query.order("created_at", desc=True).execute()
+
+        return [NewsSource(**item) for item in result.data]
+
+    async def update_source(
+        self,
+        source_id: UUID,
+        data: NewsSourceUpdate,
+    ) -> NewsSource:
+        """Update a news source."""
+        update_data = data.model_dump(exclude_none=True)
+
+        if self.mock_mode:
+            if str(source_id) in self._sources:
+                self._sources[str(source_id)].update(update_data)
+                self._sources[str(source_id)]["updated_at"] = datetime.utcnow()
+                return NewsSource(**self._sources[str(source_id)])
+            raise ValueError(f"Source {source_id} not found")
+
+        result = self.client.table("news_sources").update(
+            update_data
+        ).eq("id", str(source_id)).execute()
+
+        return NewsSource(**result.data[0])
+
+    async def delete_source(self, source_id: UUID) -> bool:
+        """Delete a news source."""
+        if self.mock_mode:
+            if str(source_id) in self._sources:
+                del self._sources[str(source_id)]
+                return True
+            return False
+
+        self.client.table("news_sources").delete().eq(
+            "id", str(source_id)
+        ).execute()
+        return True
+
     # Dashboard Stats
     async def get_dashboard_stats(self) -> dict:
+        if self.mock_mode:
+            total_briefings = len(self._briefings)
+            completed = len([
+                b for b in self._briefings.values()
+                if b["status"] == PipelineStatus.COMPLETED
+            ])
+            pending = len([
+                b for b in self._briefings.values()
+                if b["status"] in [
+                    PipelineStatus.AWAITING_SCRIPT_APPROVAL,
+                    PipelineStatus.AWAITING_VIDEO_APPROVAL,
+                ]
+            ])
+            return {
+                "total_briefings": total_briefings,
+                "completed_briefings": completed,
+                "pending_approvals": pending,
+                "total_videos": len(self._videos),
+                "total_posts": len(self._posts),
+            }
+
         briefings = self.client.table("weekly_briefings").select(
             "id, status", count="exact"
         ).execute()

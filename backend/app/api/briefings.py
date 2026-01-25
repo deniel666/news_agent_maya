@@ -1,6 +1,8 @@
 """API endpoints for weekly briefings."""
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Security
+from fastapi.security import APIKeyHeader
 from typing import Optional, List
 from datetime import date
 from uuid import UUID
@@ -17,6 +19,25 @@ from app.core.languages import (
     DEFAULT_LANGUAGE,
     get_language_config,
 )
+from app.core.config import settings
+
+# Admin API key authentication
+api_key_header = APIKeyHeader(name="X-Admin-API-Key", auto_error=False)
+
+
+async def require_admin_api_key(api_key: Optional[str] = Security(api_key_header)) -> str:
+    """Dependency that validates admin API key."""
+    if not settings.admin_api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Admin API key not configured on server"
+        )
+    if not api_key or api_key != settings.admin_api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing admin API key"
+        )
+    return api_key
 
 router = APIRouter()
 
@@ -181,9 +202,11 @@ async def get_briefing_posts(thread_id: str):
 
 
 @router.delete("/{thread_id}")
-async def delete_briefing(thread_id: str):
+async def delete_briefing(
+    thread_id: str,
+    _api_key: str = Security(require_admin_api_key),
+):
     """Delete a briefing (admin only)."""
-    # TODO: Add authentication
     db = get_db_service()
     briefing = await db.get_briefing_by_thread(thread_id)
 

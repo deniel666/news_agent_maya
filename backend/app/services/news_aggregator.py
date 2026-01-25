@@ -1,6 +1,8 @@
 import asyncio
 import feedparser
 import aiohttp
+import ssl
+import certifi
 from datetime import datetime, timedelta
 from typing import List, Optional
 from bs4 import BeautifulSoup
@@ -52,11 +54,14 @@ TWITTER_ACCOUNTS = [
 class NewsAggregatorService:
     def __init__(self):
         self.session: Optional[aiohttp.ClientSession] = None
+        # Create SSL context with certifi certificates
+        self.ssl_context = ssl.create_default_context(cafile=certifi.where())
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self.session is None or self.session.closed:
             timeout = aiohttp.ClientTimeout(total=30)
-            self.session = aiohttp.ClientSession(timeout=timeout)
+            connector = aiohttp.TCPConnector(ssl=self.ssl_context)
+            self.session = aiohttp.ClientSession(timeout=timeout, connector=connector)
         return self.session
 
     async def close(self):

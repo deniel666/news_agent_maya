@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
 
+    # Admin Authentication
+    admin_api_key: Optional[str] = None
+
     # App URLs
     frontend_url: str = "http://localhost:3000"
     backend_url: str = "http://localhost:8000"
