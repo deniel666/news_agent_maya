@@ -64,6 +64,43 @@ CREATE TABLE IF NOT EXISTS social_posts (
 CREATE INDEX IF NOT EXISTS idx_posts_video ON social_posts(video_id);
 CREATE INDEX IF NOT EXISTS idx_posts_platform ON social_posts(platform);
 
+-- News sources configuration table
+CREATE TABLE IF NOT EXISTS news_sources (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(200) NOT NULL,
+    source_type VARCHAR(50) NOT NULL,  -- rss, telegram, twitter
+    url VARCHAR(2000),
+    category VARCHAR(50),  -- local, business, ai_tech
+    reliability_tier VARCHAR(20) DEFAULT 'tier_3',  -- tier_1, tier_2, tier_3
+    is_active BOOLEAN DEFAULT true,
+    config JSONB DEFAULT '{}',  -- Source-specific configuration
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for news sources
+CREATE INDEX IF NOT EXISTS idx_news_sources_type ON news_sources(source_type);
+CREATE INDEX IF NOT EXISTS idx_news_sources_category ON news_sources(category);
+CREATE INDEX IF NOT EXISTS idx_news_sources_active ON news_sources(is_active);
+
+-- On-demand job queue table
+CREATE TABLE IF NOT EXISTS ondemand_jobs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    topic VARCHAR(500) NOT NULL,
+    language_code VARCHAR(10) DEFAULT 'en-SG',
+    status VARCHAR(50) DEFAULT 'pending',  -- pending, processing, completed, failed
+    priority INTEGER DEFAULT 0,
+    result JSONB,
+    error TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ
+);
+
+-- Index for on-demand jobs
+CREATE INDEX IF NOT EXISTS idx_ondemand_jobs_status ON ondemand_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_ondemand_jobs_created ON ondemand_jobs(created_at DESC);
+
 -- News articles cache (optional - for debugging/history)
 CREATE TABLE IF NOT EXISTS news_articles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -82,15 +119,16 @@ CREATE TABLE IF NOT EXISTS news_articles (
 CREATE INDEX IF NOT EXISTS idx_articles_briefing ON news_articles(briefing_id);
 CREATE INDEX IF NOT EXISTS idx_articles_category ON news_articles(category);
 
--- Row Level Security (RLS) - Enable for production
--- ALTER TABLE weekly_briefings ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE weekly_videos ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE social_posts ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE news_articles ENABLE ROW LEVEL SECURITY;
-
--- Grant access to authenticated users (adjust as needed)
--- CREATE POLICY "Allow all for authenticated" ON weekly_briefings
---     FOR ALL USING (true);
+-- =============================================================================
+-- ROW LEVEL SECURITY (RLS)
+-- =============================================================================
+-- IMPORTANT: For production, run the migration file:
+--   database/migrations/001_enable_rls.sql
+--
+-- This enables RLS on all tables and creates policies that:
+-- - Deny all access to anonymous users (anon key)
+-- - Allow service_role (backend) full access (bypasses RLS by default)
+-- =============================================================================
 
 -- Function to update timestamps
 CREATE OR REPLACE FUNCTION update_updated_at()
