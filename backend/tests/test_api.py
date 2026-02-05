@@ -63,7 +63,7 @@ class TestDashboardAPI:
         """Test weekly summary endpoint."""
         with patch('app.api.dashboard.get_db_service') as mock_db:
             mock_service = MagicMock()
-            mock_service.get_briefing_by_week = AsyncMock(return_value=None)
+            mock_service.get_briefings_by_threads = AsyncMock(return_value=[])
             mock_db.return_value = mock_service
 
             response = client.get("/api/v1/dashboard/weekly-summary")

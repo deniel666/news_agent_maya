@@ -126,6 +126,25 @@ class DatabaseService:
         thread_id = f"{year}-W{week:02d}"
         return await self.get_briefing_by_thread(thread_id)
 
+    async def get_briefings_by_threads(self, thread_ids: List[str]) -> List[WeeklyBriefing]:
+        if not thread_ids:
+            return []
+
+        if self.mock_mode:
+            briefings = []
+            for thread_id in thread_ids:
+                for data in self._briefings.values():
+                    if data["thread_id"] == thread_id:
+                        briefings.append(WeeklyBriefing(**data))
+                        break
+            return briefings
+
+        result = self.client.table("weekly_briefings").select("*").in_(
+            "thread_id", thread_ids
+        ).execute()
+
+        return [WeeklyBriefing(**item) for item in result.data]
+
     async def update_briefing(
         self, briefing_id: UUID, data: WeeklyBriefingUpdate
     ) -> WeeklyBriefing:
