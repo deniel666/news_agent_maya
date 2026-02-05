@@ -1,5 +1,14 @@
 """Tests for API endpoints."""
 
+import sys
+from unittest.mock import MagicMock
+
+# Mock supabase to prevent connection attempts during import
+if "supabase" not in sys.modules:
+    mock_supabase = MagicMock()
+    sys.modules["supabase"] = mock_supabase
+    sys.modules["supabase.client"] = MagicMock()
+
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock, AsyncMock
