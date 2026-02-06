@@ -7,6 +7,22 @@ from datetime import datetime
 from app.services.news_aggregator import NewsAggregatorService
 
 
+class MockResponse:
+    """Mock for aiohttp response context manager."""
+    def __init__(self, status, text_content=""):
+        self.status = status
+        self._text_content = text_content
+
+    async def text(self):
+        return self._text_content
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+
 class TestNewsAggregatorService:
     """Tests for NewsAggregatorService."""
 
@@ -36,6 +52,7 @@ class TestNewsAggregatorService:
 
         with patch.object(aggregator, '_get_session') as mock_session:
             mock_client = AsyncMock()
+            # Configure mock_client.get to return a context manager mock
             mock_client.get.return_value.__aenter__.return_value = mock_response
             mock_session.return_value = mock_client
 
@@ -125,23 +142,26 @@ class TestNitterIntegration:
         """Test Nitter fallback to multiple instances."""
         call_count = 0
 
-        async def mock_get(*args, **kwargs):
+        def mock_get(*args, **kwargs):
             nonlocal call_count
             call_count += 1
-            mock = MagicMock()
-            if call_count <= 2:  # First two fail
-                mock.status = 500
-            else:  # Third succeeds
-                mock.status = 200
-                mock.text = AsyncMock(return_value="<rss><channel></channel></rss>")
-            return mock
+            # First two fail (status 500)
+            if call_count <= 2:
+                return MockResponse(500)
+            # Third succeeds
+            return MockResponse(200, "<rss><channel><item><title>Tweet</title></item></channel></rss>")
 
         with patch.object(aggregator, '_get_session') as mock_session:
-            mock_client = AsyncMock()
-            mock_client.get = mock_get
+            # We use MagicMock for client because get() is synchronous returning a context manager
+            mock_client = MagicMock()
+            mock_client.get.side_effect = mock_get
+
+            # _get_session is async, so it returns the client when awaited
             mock_session.return_value = mock_client
 
             articles = await aggregator.fetch_nitter_feeds(days=7)
 
             # Should have tried multiple instances
             assert call_count >= 1
+            # Should have found at least one article if parsing worked
+            # (assuming feedparser works with the string)
