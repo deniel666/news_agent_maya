@@ -82,6 +82,9 @@ Example natural phrases:
 # Default language setting
 DEFAULT_LANGUAGE = "en-SG"
 
+# Supported language codes
+SUPPORTED_LANGUAGES = list(LANGUAGE_CONFIGS.keys())
+
 # Target audience description for all prompts
 TARGET_AUDIENCE = """Traditional Malaysian SME owners - kedai operators, F&B entrepreneurs,
 neighborhood service providers, small retail shop owners, and local service businesses.
@@ -126,6 +129,18 @@ def get_language_choices() -> list:
         }
         for code, config in LANGUAGE_CONFIGS.items()
     ]
+
+
+def build_prompt_instruction(language_config: Dict[str, Any]) -> str:
+    """Extract prompt instruction from language config.
+
+    Args:
+        language_config: Language configuration dictionary
+
+    Returns:
+        Prompt instruction string
+    """
+    return language_config.get("prompt_instruction", "")
 
 
 def build_synthesis_prompt(
