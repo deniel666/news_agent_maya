@@ -45,17 +45,32 @@ async def get_weekly_summary():
     db = get_db_service()
     today = date.today()
 
-    weeks = []
+    target_weeks = []
+    thread_ids = []
+
     for i in range(4):  # Last 4 weeks
         week_date = today - timedelta(weeks=i)
         week_number = week_date.isocalendar()[1]
         year = week_date.isocalendar()[0]
+        thread_id = f"{year}-W{week_number:02d}"
 
-        briefing = await db.get_briefing_by_week(year, week_number)
-
-        weeks.append({
+        target_weeks.append({
             "week_number": week_number,
             "year": year,
+            "thread_id": thread_id
+        })
+        thread_ids.append(thread_id)
+
+    briefings = await db.get_briefings_by_threads(thread_ids)
+    briefing_map = {b.thread_id: b for b in briefings}
+
+    weeks = []
+    for target in target_weeks:
+        briefing = briefing_map.get(target["thread_id"])
+
+        weeks.append({
+            "week_number": target["week_number"],
+            "year": target["year"],
             "status": briefing.status.value if briefing else "not_started",
             "briefing_id": str(briefing.id) if briefing else None,
             "thread_id": briefing.thread_id if briefing else None,
