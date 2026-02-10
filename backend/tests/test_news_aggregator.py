@@ -34,9 +34,12 @@ class TestNewsAggregatorService:
     @pytest.mark.asyncio
     async def test_fetch_rss_feeds_success(self, aggregator):
         """Test successful RSS feed fetching."""
+        # Use current date to prevent test from failing due to staleness
+        now_str = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
+
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.text = AsyncMock(return_value="""
+        mock_response.text = AsyncMock(return_value=f"""
             <?xml version="1.0" encoding="UTF-8"?>
             <rss version="2.0">
                 <channel>
@@ -44,14 +47,15 @@ class TestNewsAggregatorService:
                         <title>Test Article</title>
                         <description>Test content</description>
                         <link>https://example.com/article</link>
-                        <pubDate>Mon, 20 Jan 2026 10:00:00 GMT</pubDate>
+                        <pubDate>{now_str}</pubDate>
                     </item>
                 </channel>
             </rss>
         """)
 
         with patch.object(aggregator, '_get_session') as mock_session:
-            mock_client = AsyncMock()
+            # use MagicMock because session.get() is synchronous returning a context manager
+            mock_client = MagicMock()
             # Configure mock_client.get to return a context manager mock
             mock_client.get.return_value.__aenter__.return_value = mock_response
             mock_session.return_value = mock_client
@@ -60,12 +64,14 @@ class TestNewsAggregatorService:
 
             # Should have fetched articles
             assert isinstance(articles, list)
+            # Verify we actually got articles, ensuring the mock worked
+            assert len(articles) > 0
 
     @pytest.mark.asyncio
     async def test_fetch_rss_feeds_handles_errors(self, aggregator):
         """Test RSS feed error handling."""
         with patch.object(aggregator, '_get_session') as mock_session:
-            mock_client = AsyncMock()
+            mock_client = MagicMock()
             mock_client.get.side_effect = Exception("Network error")
             mock_session.return_value = mock_client
 
