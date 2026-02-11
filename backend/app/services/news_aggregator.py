@@ -91,37 +91,57 @@ class NewsAggregatorService:
 
     async def fetch_rss_feeds(self, days: int = 7) -> List[NewsArticle]:
         """Fetch articles from RSS feeds."""
-        articles = []
         cutoff = datetime.utcnow() - timedelta(days=days)
         session = await self._get_session()
 
-        for source_name, feed_url in SEA_RSS_FEEDS.items():
-            try:
-                async with session.get(feed_url) as response:
-                    if response.status == 200:
-                        content = await response.text()
-                        feed = feedparser.parse(content)
+        tasks = [
+            self._fetch_single_rss_feed(session, source_name, feed_url, cutoff)
+            for source_name, feed_url in SEA_RSS_FEEDS.items()
+        ]
 
-                        for entry in feed.entries[:30]:
-                            published = self._parse_date(entry.get("published"))
-                            if published and published < cutoff:
-                                continue
+        results = await asyncio.gather(*tasks)
 
-                            # Clean HTML from content
-                            content_raw = entry.get("summary", "") or entry.get("description", "")
-                            content_clean = self._clean_html(content_raw)
+        # Flatten results
+        articles = []
+        for result in results:
+            articles.extend(result)
 
-                            articles.append(NewsArticle(
-                                source_type="rss",
-                                source_name=source_name,
-                                title=entry.get("title", ""),
-                                content=content_clean,
-                                url=entry.get("link", ""),
-                                published_at=published or datetime.utcnow(),
-                            ))
-            except Exception as e:
-                print(f"Error fetching RSS {source_name}: {e}")
-                continue
+        return articles
+
+    async def _fetch_single_rss_feed(
+        self,
+        session: aiohttp.ClientSession,
+        source_name: str,
+        feed_url: str,
+        cutoff: datetime
+    ) -> List[NewsArticle]:
+        """Fetch and parse a single RSS feed."""
+        articles = []
+        try:
+            async with session.get(feed_url) as response:
+                if response.status == 200:
+                    content = await response.text()
+                    feed = feedparser.parse(content)
+
+                    for entry in feed.entries[:30]:
+                        published = self._parse_date(entry.get("published"))
+                        if published and published < cutoff:
+                            continue
+
+                        # Clean HTML from content
+                        content_raw = entry.get("summary", "") or entry.get("description", "")
+                        content_clean = self._clean_html(content_raw)
+
+                        articles.append(NewsArticle(
+                            source_type="rss",
+                            source_name=source_name,
+                            title=entry.get("title", ""),
+                            content=content_clean,
+                            url=entry.get("link", ""),
+                            published_at=published or datetime.utcnow(),
+                        ))
+        except Exception as e:
+            print(f"Error fetching RSS {source_name}: {e}")
 
         return articles
 
