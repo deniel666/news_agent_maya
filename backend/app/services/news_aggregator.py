@@ -100,6 +100,7 @@ class NewsAggregatorService:
         ]
         results = await asyncio.gather(*tasks)
 
+        # Flatten results
         articles = []
         for result in results:
             articles.extend(result)
@@ -139,6 +140,7 @@ class NewsAggregatorService:
 
     async def fetch_nitter_feeds(self, days: int = 7) -> List[NewsArticle]:
         """Fetch tweets via Nitter RSS (free Twitter alternative)."""
+        articles = []
         cutoff = datetime.utcnow() - timedelta(days=days)
         session = await self._get_session()
 
