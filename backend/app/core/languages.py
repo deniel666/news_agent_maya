@@ -79,6 +79,9 @@ Example natural phrases:
     },
 }
 
+# Supported languages list
+SUPPORTED_LANGUAGES = list(LANGUAGE_CONFIGS.keys())
+
 # Default language setting
 DEFAULT_LANGUAGE = "en-SG"
 
@@ -131,6 +134,11 @@ def get_language_choices() -> list:
     ]
 
 
+def build_prompt_instruction(config: Dict[str, Any]) -> str:
+    """Get prompt instruction from configuration.
+
+    Args:
+        config: Language configuration dictionary
 def build_prompt_instruction(language_config: Dict[str, Any]) -> str:
     """Extract prompt instruction from language config.
 
@@ -140,6 +148,7 @@ def build_prompt_instruction(language_config: Dict[str, Any]) -> str:
     Returns:
         Prompt instruction string
     """
+    return config.get("prompt_instruction", "")
     return language_config.get("prompt_instruction", "")
 
 
