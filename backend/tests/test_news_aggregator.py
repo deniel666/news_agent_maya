@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.services.news_aggregator import NewsAggregatorService
 
@@ -36,36 +36,51 @@ class TestNewsAggregatorService:
         """Test successful RSS feed fetching."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.text = AsyncMock(return_value="""
-            <?xml version="1.0" encoding="UTF-8"?>
-            <rss version="2.0">
-                <channel>
-                    <item>
-                        <title>Test Article</title>
-                        <description>Test content</description>
-                        <link>https://example.com/article</link>
-                        <pubDate>Mon, 20 Jan 2026 10:00:00 GMT</pubDate>
-                    </item>
-                </channel>
-            </rss>
-        """)
+        mock_response.text = AsyncMock(return_value="some content")
 
-        with patch.object(aggregator, '_get_session') as mock_session:
-            mock_client = AsyncMock()
-            # Configure mock_client.get to return a context manager mock
-            mock_client.get.return_value.__aenter__.return_value = mock_response
-            mock_session.return_value = mock_client
+        # Mock feedparser.parse to avoid XML parsing issues
+        with patch('app.services.news_aggregator.feedparser.parse') as mock_parse:
+            # Use a recent date so it's not filtered out
+            recent_date = datetime.utcnow() - timedelta(days=1)
+            # Format as RSS date string (e.g., "Mon, 20 Jan 2026 10:00:00 GMT")
+            # Using simple format that dateutil.parser handles easily
+            date_str = recent_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
-            articles = await aggregator.fetch_rss_feeds(days=7)
+            mock_entry = {
+                'title': 'Test Article',
+                'summary': 'Test content',
+                'link': 'https://example.com/article',
+                'published': date_str
+            }
+            mock_feed = MagicMock()
+            mock_feed.entries = [mock_entry]
+            mock_parse.return_value = mock_feed
 
-            # Should have fetched articles
-            assert isinstance(articles, list)
+            with patch.object(aggregator, '_get_session') as mock_session:
+                # Use MagicMock for client because aiohttp.ClientSession.get() is synchronous
+                mock_client = MagicMock()
+
+                # Configure mock_client.get to return an AsyncMock as context manager
+                # This ensures proper async context manager behavior (__aenter__ is awaitable)
+                mock_ctx = AsyncMock()
+                mock_ctx.__aenter__.return_value = mock_response
+                mock_client.get.return_value = mock_ctx
+
+                # Since _get_session is an async method, patch will use AsyncMock for mock_session.
+                # When awaited, it returns mock_session.return_value.
+                mock_session.return_value = mock_client
+
+                articles = await aggregator.fetch_rss_feeds(days=7)
+
+                # Should have fetched articles
+                assert isinstance(articles, list)
+                assert len(articles) > 0
 
     @pytest.mark.asyncio
     async def test_fetch_rss_feeds_handles_errors(self, aggregator):
         """Test RSS feed error handling."""
         with patch.object(aggregator, '_get_session') as mock_session:
-            mock_client = AsyncMock()
+            mock_client = MagicMock()
             mock_client.get.side_effect = Exception("Network error")
             mock_session.return_value = mock_client
 
