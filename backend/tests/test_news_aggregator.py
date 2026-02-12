@@ -34,9 +34,8 @@ class TestNewsAggregatorService:
     @pytest.mark.asyncio
     async def test_fetch_rss_feeds_success(self, aggregator):
         """Test successful RSS feed fetching."""
-        # Use current time to ensure article is not filtered out by cutoff
-        now = datetime.utcnow()
-        date_str = now.strftime("%a, %d %b %Y %H:%M:%S GMT")
+        # Use current date to prevent test from failing due to staleness
+        now_str = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
 
         mock_response = MagicMock()
         mock_response.status = 200
@@ -48,27 +47,24 @@ class TestNewsAggregatorService:
                         <title>Test Article</title>
                         <description>Test content</description>
                         <link>https://example.com/article</link>
-                        <pubDate>{date_str}</pubDate>
+                        <pubDate>{now_str}</pubDate>
                     </item>
                 </channel>
             </rss>
         """)
 
         with patch.object(aggregator, '_get_session') as mock_session:
-            # Use MagicMock for client because .get() should be synchronous (returning context manager)
+            # use MagicMock because session.get() is synchronous returning a context manager
             mock_client = MagicMock()
             # Configure mock_client.get to return a context manager mock
             mock_client.get.return_value.__aenter__.return_value = mock_response
-
-            # _get_session is async, so it returns the client when awaited
             mock_session.return_value = mock_client
 
             articles = await aggregator.fetch_rss_feeds(days=7)
 
             # Should have fetched articles
             assert isinstance(articles, list)
-            # Verify we actually got articles (meaning the mock worked)
-            # 9 feeds * 1 article each = 9 articles
+            # Verify we actually got articles, ensuring the mock worked
             assert len(articles) > 0
 
     @pytest.mark.asyncio

@@ -98,24 +98,17 @@ class NewsAggregatorService:
             self._fetch_single_rss_feed(session, source_name, feed_url, cutoff)
             for source_name, feed_url in SEA_RSS_FEEDS.items()
         ]
-
         results = await asyncio.gather(*tasks)
 
         # Flatten results
         articles = []
         for result in results:
             articles.extend(result)
-
         return articles
 
     async def _fetch_single_rss_feed(
-        self,
-        session: aiohttp.ClientSession,
-        source_name: str,
-        feed_url: str,
-        cutoff: datetime
+        self, session: aiohttp.ClientSession, source_name: str, feed_url: str, cutoff: datetime
     ) -> List[NewsArticle]:
-        """Fetch and parse a single RSS feed."""
         articles = []
         try:
             async with session.get(feed_url) as response:
@@ -151,23 +144,48 @@ class NewsAggregatorService:
         cutoff = datetime.utcnow() - timedelta(days=days)
         session = await self._get_session()
 
-        for username in TWITTER_ACCOUNTS:
-            for nitter_instance in NITTER_INSTANCES:
-                try:
-                    url = f"{nitter_instance}/{username}/rss"
-                    async with session.get(url) as response:
-                        if response.status == 200:
-                            content = await response.text()
-                            feed = feedparser.parse(content)
+        tasks = [
+            self._fetch_single_nitter_feed(session, username, cutoff)
+            for username in TWITTER_ACCOUNTS
+        ]
+        results = await asyncio.gather(*tasks)
 
-                            for entry in feed.entries[:20]:
-                                published = self._parse_date(entry.get("published"))
-                                if published and published < cutoff:
-                                    continue
+        articles = []
+        for result in results:
+            articles.extend(result)
+        return articles
 
-                                content_clean = self._clean_html(entry.get("title", ""))
+    async def _fetch_single_nitter_feed(
+        self, session: aiohttp.ClientSession, username: str, cutoff: datetime
+    ) -> List[NewsArticle]:
+        articles = []
+        for nitter_instance in NITTER_INSTANCES:
+            try:
+                url = f"{nitter_instance}/{username}/rss"
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        content = await response.text()
+                        feed = feedparser.parse(content)
 
-        return []  # All instances failed
+                        for entry in feed.entries[:20]:
+                            published = self._parse_date(entry.get("published"))
+                            if published and published < cutoff:
+                                continue
+
+                            content_clean = self._clean_html(entry.get("title", ""))
+
+                            articles.append(NewsArticle(
+                                source_type="nitter",
+                                source_name=f"@{username}",
+                                title=None,
+                                content=content_clean,
+                                url=entry.get("link", ""),
+                                published_at=published or datetime.utcnow(),
+                            ))
+                        break  # Success, no need to try other instances
+            except Exception:
+                continue  # Try next Nitter instance
+        return articles
 
     async def fetch_telegram_channels(self, days: int = 7) -> List[NewsArticle]:
         """Fetch messages from Telegram channels."""
