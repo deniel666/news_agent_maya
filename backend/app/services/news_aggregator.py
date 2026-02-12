@@ -161,7 +161,26 @@ class NewsAggregatorService:
                             ))
                         break  # Success, no need to try other instances
             except Exception as e:
-                continue  # Try next Nitter instance
+                print(f"Error fetching RSS {source_name}: {e}")
+            return feed_articles
+
+        tasks = [
+            fetch_single_feed(source_name, feed_url)
+            for source_name, feed_url in SEA_RSS_FEEDS.items()
+        ]
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for result in results:
+            if isinstance(result, list):
+                articles.extend(result)
+            elif isinstance(result, Exception):
+                print(f"Error in RSS task: {result}")
+                            )
+                        )
+        except Exception as e:
+            print(f"Error fetching RSS {source_name}: {e}")
+
         return articles
 
     async def fetch_nitter_feeds(self, days: int = 7) -> List[NewsArticle]:
@@ -169,6 +188,15 @@ class NewsAggregatorService:
         cutoff = datetime.utcnow() - timedelta(days=days)
         session = await self._get_session()
 
+        async def fetch_user_feed(username: str) -> List[NewsArticle]:
+            user_articles = []
+            for nitter_instance in NITTER_INSTANCES:
+                try:
+                    url = f"{nitter_instance}/{username}/rss"
+                    async with session.get(url) as response:
+                        if response.status == 200:
+                            content = await response.text()
+                            feed = feedparser.parse(content)
         tasks = [
             self._fetch_single_nitter_feed(session, username, cutoff)
             for username in TWITTER_ACCOUNTS
