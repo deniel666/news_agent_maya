@@ -682,14 +682,44 @@ class DatabaseService:
 
         result = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
 
+        if not result.data:
+            return []
+
+        stories_data = result.data
+        story_ids = [item["id"] for item in stories_data]
+
+        # Batch fetch videos
+        videos_result = self.client.table("video_assets").select("*").in_(
+            "story_id", story_ids
+        ).order("created_at", desc=True).execute()
+
+        videos_by_story = {}
+        for item in videos_result.data:
+            s_id = item["story_id"]
+            if s_id not in videos_by_story:
+                videos_by_story[s_id] = []
+            videos_by_story[s_id].append(VideoAsset(**item))
+
+        # Batch fetch publish records
+        records_result = self.client.table("publish_records").select("*").in_(
+            "story_id", story_ids
+        ).order("created_at", desc=True).execute()
+
+        records_by_story = {}
+        for item in records_result.data:
+            s_id = item["story_id"]
+            if s_id not in records_by_story:
+                records_by_story[s_id] = []
+            records_by_story[s_id].append(PublishRecord(**item))
+
         stories = []
-        for item in result.data:
-            story = StoryWithAssets(**item, videos=[], publish_records=[])
-            # Get videos and publish records
-            videos = await self.list_videos_by_story(story.id)
-            records = await self.list_publish_records_by_story(story.id)
-            story.videos = videos
-            story.publish_records = records
+        for item in stories_data:
+            s_id = item["id"]
+            story = StoryWithAssets(
+                **item,
+                videos=videos_by_story.get(s_id, []),
+                publish_records=records_by_story.get(s_id, [])
+            )
             stories.append(story)
 
         return stories
