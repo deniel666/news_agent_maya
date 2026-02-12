@@ -34,12 +34,9 @@ class TestNewsAggregatorService:
     @pytest.mark.asyncio
     async def test_fetch_rss_feeds_success(self, aggregator):
         """Test successful RSS feed fetching."""
-        # Use current date to prevent test from failing due to staleness
-        now_str = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
-
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_response.text = AsyncMock(return_value=f"""
+        # Use a recent date so it's not filtered out
+        pub_date = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
+        xml_content = f"""
             <?xml version="1.0" encoding="UTF-8"?>
             <rss version="2.0">
                 <channel>
@@ -47,24 +44,22 @@ class TestNewsAggregatorService:
                         <title>Test Article</title>
                         <description>Test content</description>
                         <link>https://example.com/article</link>
-                        <pubDate>{now_str}</pubDate>
+                        <pubDate>{pub_date}</pubDate>
                     </item>
                 </channel>
             </rss>
-        """)
+        """
 
         with patch.object(aggregator, '_get_session') as mock_session:
-            # use MagicMock because session.get() is synchronous returning a context manager
             mock_client = MagicMock()
-            # Configure mock_client.get to return a context manager mock
-            mock_client.get.return_value.__aenter__.return_value = mock_response
+            # Mock get to return a MockResponse which properly implements __aenter__
+            mock_client.get.return_value = MockResponse(200, xml_content)
             mock_session.return_value = mock_client
 
             articles = await aggregator.fetch_rss_feeds(days=7)
 
             # Should have fetched articles
             assert isinstance(articles, list)
-            # Verify we actually got articles, ensuring the mock worked
             assert len(articles) > 0
 
     @pytest.mark.asyncio

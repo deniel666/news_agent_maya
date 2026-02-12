@@ -1,7 +1,3 @@
-## 2026-02-10 - Asyncio Gather Optimization
-**Learning:** Sequential HTTP requests in loops are a major performance bottleneck in Python async code. `asyncio.gather` provides massive speedups (observed 2.5x - 3x improvement) for I/O-bound tasks.
-**Action:** Always refactor sequential API calls in loops to concurrent tasks using `asyncio.gather`, especially for news aggregation or multi-source fetching.
-
-## 2026-02-10 - Test Data Staleness
-**Learning:** Hardcoding dates in tests for time-sensitive logic (like filtering news by age) causes tests to fail silently or explicitly in the future.
-**Action:** Always use dynamic dates (e.g., `datetime.utcnow()`) in test data generation to ensure tests remain valid over time.
+## 2026-02-09 - Sequential I/O in Aggregators
+**Learning:** The `NewsAggregatorService` was fetching RSS and Nitter feeds sequentially, which is a major bottleneck as these are I/O bound operations. This pattern often goes unnoticed in initial implementations but scales poorly.
+**Action:** Always use `asyncio.gather` for independent I/O bound tasks in aggregators.

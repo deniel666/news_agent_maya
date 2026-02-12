@@ -98,16 +98,23 @@ class NewsAggregatorService:
             self._fetch_single_rss_feed(session, source_name, feed_url, cutoff)
             for source_name, feed_url in SEA_RSS_FEEDS.items()
         ]
-        results = await asyncio.gather(*tasks)
 
-        # Flatten results
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
         articles = []
         for result in results:
-            articles.extend(result)
+            if isinstance(result, list):
+                articles.extend(result)
+            # Individual feed errors are handled in _fetch_single_rss_feed
+
         return articles
 
     async def _fetch_single_rss_feed(
-        self, session: aiohttp.ClientSession, source_name: str, feed_url: str, cutoff: datetime
+        self,
+        session: aiohttp.ClientSession,
+        source_name: str,
+        feed_url: str,
+        cutoff: datetime,
     ) -> List[NewsArticle]:
         articles = []
         try:
@@ -125,14 +132,16 @@ class NewsAggregatorService:
                         content_raw = entry.get("summary", "") or entry.get("description", "")
                         content_clean = self._clean_html(content_raw)
 
-                        articles.append(NewsArticle(
-                            source_type="rss",
-                            source_name=source_name,
-                            title=entry.get("title", ""),
-                            content=content_clean,
-                            url=entry.get("link", ""),
-                            published_at=published or datetime.utcnow(),
-                        ))
+                        articles.append(
+                            NewsArticle(
+                                source_type="rss",
+                                source_name=source_name,
+                                title=entry.get("title", ""),
+                                content=content_clean,
+                                url=entry.get("link", ""),
+                                published_at=published or datetime.utcnow(),
+                            )
+                        )
         except Exception as e:
             print(f"Error fetching RSS {source_name}: {e}")
 
@@ -140,7 +149,6 @@ class NewsAggregatorService:
 
     async def fetch_nitter_feeds(self, days: int = 7) -> List[NewsArticle]:
         """Fetch tweets via Nitter RSS (free Twitter alternative)."""
-        articles = []
         cutoff = datetime.utcnow() - timedelta(days=days)
         session = await self._get_session()
 
@@ -148,11 +156,14 @@ class NewsAggregatorService:
             self._fetch_single_nitter_feed(session, username, cutoff)
             for username in TWITTER_ACCOUNTS
         ]
-        results = await asyncio.gather(*tasks)
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
         articles = []
         for result in results:
-            articles.extend(result)
+            if isinstance(result, list):
+                articles.extend(result)
+
         return articles
 
     async def _fetch_single_nitter_feed(
@@ -174,17 +185,20 @@ class NewsAggregatorService:
 
                             content_clean = self._clean_html(entry.get("title", ""))
 
-                            articles.append(NewsArticle(
-                                source_type="nitter",
-                                source_name=f"@{username}",
-                                title=None,
-                                content=content_clean,
-                                url=entry.get("link", ""),
-                                published_at=published or datetime.utcnow(),
-                            ))
+                            articles.append(
+                                NewsArticle(
+                                    source_type="nitter",
+                                    source_name=f"@{username}",
+                                    title=None,
+                                    content=content_clean,
+                                    url=entry.get("link", ""),
+                                    published_at=published or datetime.utcnow(),
+                                )
+                            )
                         break  # Success, no need to try other instances
             except Exception:
                 continue  # Try next Nitter instance
+
         return articles
 
     async def fetch_telegram_channels(self, days: int = 7) -> List[NewsArticle]:
