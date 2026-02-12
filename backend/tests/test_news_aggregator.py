@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.services.news_aggregator import NewsAggregatorService
 
