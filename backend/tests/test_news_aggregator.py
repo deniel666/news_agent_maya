@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.services.news_aggregator import NewsAggregatorService
 
@@ -67,7 +67,11 @@ class TestNewsAggregatorService:
         """Test RSS feed error handling."""
         with patch.object(aggregator, '_get_session') as mock_session:
             mock_client = MagicMock()
-            mock_client.get.side_effect = Exception("Network error")
+            # .get() returns a context manager, causing error inside __aenter__
+            mock_ctx = MagicMock()
+            mock_ctx.__aenter__.side_effect = Exception("Network error")
+            mock_client.get.return_value = mock_ctx
+
             mock_session.return_value = mock_client
 
             # Should not raise, just return empty list
