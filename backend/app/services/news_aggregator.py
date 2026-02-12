@@ -167,19 +167,7 @@ class NewsAggregatorService:
 
                                 content_clean = self._clean_html(entry.get("title", ""))
 
-                                articles.append(NewsArticle(
-                                    source_type="nitter",
-                                    source_name=f"@{username}",
-                                    title=None,
-                                    content=content_clean,
-                                    url=entry.get("link", ""),
-                                    published_at=published or datetime.utcnow(),
-                                ))
-                            break  # Success, no need to try other instances
-                except Exception as e:
-                    continue  # Try next Nitter instance
-
-        return articles
+        return []  # All instances failed
 
     async def fetch_telegram_channels(self, days: int = 7) -> List[NewsArticle]:
         """Fetch messages from Telegram channels."""
