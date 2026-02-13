@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
 import { Save, RotateCcw, Maximize2, Minimize2 } from 'lucide-react'
 import { cn } from '../lib/utils'
 
@@ -18,6 +18,7 @@ export default function ScriptEditor({
   const [content, setContent] = useState(script || '')
   const [isExpanded, setIsExpanded] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
+  const titleId = useId()
 
   useEffect(() => {
     setContent(script || '')
@@ -52,7 +53,9 @@ export default function ScriptEditor({
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-white">{title}</h3>
+        <h3 id={titleId} className="font-semibold text-white">
+          {title}
+        </h3>
         <div className="flex items-center gap-2">
           {!readOnly && hasChanges && (
             <>
@@ -60,12 +63,14 @@ export default function ScriptEditor({
                 onClick={handleReset}
                 className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
                 title="Reset changes"
+                aria-label="Reset changes"
               >
                 <RotateCcw className="w-4 h-4 text-gray-400" />
               </button>
               <button
                 onClick={handleSave}
                 className="btn btn-primary text-sm flex items-center gap-1"
+                aria-label="Save script"
               >
                 <Save className="w-3 h-3" />
                 Save
@@ -76,6 +81,7 @@ export default function ScriptEditor({
             onClick={() => setIsExpanded(!isExpanded)}
             className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
             title={isExpanded ? 'Minimize' : 'Expand'}
+            aria-label={isExpanded ? 'Minimize editor' : 'Expand editor'}
           >
             {isExpanded ? (
               <Minimize2 className="w-4 h-4 text-gray-400" />
@@ -88,7 +94,10 @@ export default function ScriptEditor({
 
       {/* Editor */}
       {readOnly ? (
-        <pre className="whitespace-pre-wrap text-gray-300 text-sm font-sans bg-dark-bg p-4 rounded-lg min-h-[200px]">
+        <pre
+          className="whitespace-pre-wrap text-gray-300 text-sm font-sans bg-dark-bg p-4 rounded-lg min-h-[200px]"
+          aria-labelledby={titleId}
+        >
           {content || 'No script available'}
         </pre>
       ) : (
@@ -102,6 +111,7 @@ export default function ScriptEditor({
             isExpanded ? 'min-h-[calc(100vh-200px)]' : 'min-h-[200px]'
           )}
           placeholder="Enter script content..."
+          aria-labelledby={titleId}
         />
       )}
 
