@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, KeyboardEvent } from 'react'
 import { Save, RotateCcw, Maximize2, Minimize2 } from 'lucide-react'
 import { cn } from '../lib/utils'
 
@@ -39,6 +39,13 @@ export default function ScriptEditor({
     setHasChanges(false)
   }
 
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault()
+      handleSave()
+    }
+  }
+
   // Word count
   const wordCount = content.trim().split(/\s+/).filter(Boolean).length
   const estimatedSeconds = Math.round(wordCount / 2.5) // ~150 words per minute
@@ -60,12 +67,15 @@ export default function ScriptEditor({
                 onClick={handleReset}
                 className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
                 title="Reset changes"
+                aria-label="Reset changes"
               >
                 <RotateCcw className="w-4 h-4 text-gray-400" />
               </button>
               <button
                 onClick={handleSave}
                 className="btn btn-primary text-sm flex items-center gap-1"
+                title="Save (Ctrl+S)"
+                aria-label="Save script (Ctrl+S)"
               >
                 <Save className="w-3 h-3" />
                 Save
@@ -76,6 +86,8 @@ export default function ScriptEditor({
             onClick={() => setIsExpanded(!isExpanded)}
             className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
             title={isExpanded ? 'Minimize' : 'Expand'}
+            aria-label={isExpanded ? 'Minimize editor' : 'Expand editor'}
+            aria-expanded={isExpanded}
           >
             {isExpanded ? (
               <Minimize2 className="w-4 h-4 text-gray-400" />
@@ -95,6 +107,8 @@ export default function ScriptEditor({
         <textarea
           value={content}
           onChange={(e) => handleChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          aria-label={title}
           className={cn(
             'w-full bg-dark-bg text-gray-300 text-sm font-sans p-4 rounded-lg',
             'border border-dark-border focus:border-maya-500 focus:ring-1 focus:ring-maya-500',
@@ -112,7 +126,7 @@ export default function ScriptEditor({
           <span>~{estimatedSeconds}s</span>
         </div>
         {hasChanges && (
-          <span className="text-yellow-400">Unsaved changes</span>
+          <span className="text-yellow-400" role="status">Unsaved changes</span>
         )}
       </div>
     </div>
