@@ -139,17 +139,11 @@ def build_prompt_instruction(config: Dict[str, Any]) -> str:
 
     Args:
         config: Language configuration dictionary
-def build_prompt_instruction(language_config: Dict[str, Any]) -> str:
-    """Extract prompt instruction from language config.
-
-    Args:
-        language_config: Language configuration dictionary
 
     Returns:
         Prompt instruction string
     """
     return config.get("prompt_instruction", "")
-    return language_config.get("prompt_instruction", "")
 
 
 def build_synthesis_prompt(

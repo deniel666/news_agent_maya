@@ -89,36 +89,6 @@ class NewsAggregatorService:
 
         return articles
 
-    async def _fetch_single_rss_feed(self, session: aiohttp.ClientSession, source_name: str, feed_url: str, cutoff: datetime) -> List[NewsArticle]:
-        articles = []
-        try:
-            async with session.get(feed_url) as response:
-                if response.status == 200:
-                    content = await response.text()
-                    feed = feedparser.parse(content)
-
-                    for entry in feed.entries[:30]:
-                        published = self._parse_date(entry.get("published"))
-                        if published and published < cutoff:
-                            continue
-
-                        # Clean HTML from content
-                        content_raw = entry.get("summary", "") or entry.get("description", "")
-                        content_clean = self._clean_html(content_raw)
-
-                        articles.append(NewsArticle(
-                            source_type="rss",
-                            source_name=source_name,
-                            title=entry.get("title", ""),
-                            content=content_clean,
-                            url=entry.get("link", ""),
-                            published_at=published or datetime.utcnow(),
-                        ))
-        except Exception as e:
-            print(f"Error fetching RSS {source_name}: {e}")
-
-        return articles
-
     async def fetch_rss_feeds(self, days: int = 7) -> List[NewsArticle]:
         """Fetch articles from RSS feeds."""
         cutoff = datetime.utcnow() - timedelta(days=days)
@@ -153,7 +123,8 @@ class NewsAggregatorService:
             async with session.get(feed_url) as response:
                 if response.status == 200:
                     content = await response.text()
-                    feed = feedparser.parse(content)
+                    # Offload CPU-bound parsing to thread pool
+                    feed = await asyncio.to_thread(feedparser.parse, content)
 
                     for entry in feed.entries[:30]:
                         published = self._parse_date(entry.get("published"))
@@ -212,7 +183,8 @@ class NewsAggregatorService:
                 async with session.get(url) as response:
                     if response.status == 200:
                         content = await response.text()
-                        feed = feedparser.parse(content)
+                        # Offload CPU-bound parsing to thread pool
+                        feed = await asyncio.to_thread(feedparser.parse, content)
 
                         for entry in feed.entries[:20]:
                             published = self._parse_date(entry.get("published"))
@@ -233,8 +205,7 @@ class NewsAggregatorService:
             except Exception:
                 continue  # Try next Nitter instance
 
-        # Flatten list of lists
-        return [article for sublist in results for article in sublist]
+        return []
 
     async def fetch_telegram_channels(self, days: int = 7) -> List[NewsArticle]:
         """Fetch messages from Telegram channels."""
