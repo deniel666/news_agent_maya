@@ -8,7 +8,6 @@ import {
 import {
   FileText,
   Video,
-  Share2,
   Clock,
   Play,
   CheckCircle,
@@ -17,6 +16,7 @@ import {
 import { formatDateTime, getStatusColor, getStatusLabel } from '../lib/utils'
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
+import { LoadingSpinner } from '../components/LoadingSpinner'
 
 export default function Dashboard() {
   const [isCreating, setIsCreating] = useState(false)
@@ -64,7 +64,11 @@ export default function Dashboard() {
           disabled={isCreating}
           className="btn btn-primary flex items-center gap-2"
         >
-          <Play className="w-4 h-4" />
+          {isCreating ? (
+            <LoadingSpinner size="sm" className="text-white" />
+          ) : (
+            <Play className="w-4 h-4" />
+          )}
           {isCreating ? 'Starting...' : 'Start New Briefing'}
         </button>
       </div>
