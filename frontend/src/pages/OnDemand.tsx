@@ -9,11 +9,11 @@ import {
   XCircle,
   ChevronRight,
   Trash2,
-  RefreshCw,
   Globe,
   Languages,
 } from 'lucide-react'
 import { cn, formatDateTime } from '../lib/utils'
+import { LoadingSpinner } from '../components/LoadingSpinner'
 import {
   generateFromArticle,
   listOnDemandJobs,
@@ -129,7 +129,7 @@ export default function OnDemand() {
               >
                 {generateMutation.isPending ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <LoadingSpinner size="sm" className="text-white" />
                     Processing...
                   </>
                 ) : (
@@ -208,7 +208,9 @@ export default function OnDemand() {
         <h2 className="text-lg font-semibold text-white mb-4">Recent Jobs</h2>
 
         {isLoading ? (
-          <div className="text-center py-8 text-gray-400">Loading...</div>
+          <div className="flex justify-center py-8">
+            <LoadingSpinner size="lg" />
+          </div>
         ) : !jobs?.length ? (
           <div className="text-center py-12">
             <Link2 className="w-12 h-12 text-gray-600 mx-auto mb-4" />
@@ -251,7 +253,7 @@ function JobRow({ job }: { job: any }) {
       case 'awaiting_video_approval':
         return <Clock className="w-5 h-5 text-yellow-400" />
       default:
-        return <RefreshCw className="w-5 h-5 text-maya-400 animate-spin" />
+        return <LoadingSpinner className="w-5 h-5" />
     }
   }
 
