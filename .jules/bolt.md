@@ -1,3 +1,3 @@
-## 2026-02-09 - Sequential I/O in Aggregators
-**Learning:** The `NewsAggregatorService` was fetching RSS and Nitter feeds sequentially, which is a major bottleneck as these are I/O bound operations. This pattern often goes unnoticed in initial implementations but scales poorly.
-**Action:** Always use `asyncio.gather` for independent I/O bound tasks in aggregators.
+## 2026-02-18 - [Offload CPU-Bound Feed Parsing]
+**Learning:** `feedparser.parse` and `BeautifulSoup` operations are synchronous and CPU-bound, which can block the asyncio event loop for significant periods (hundreds of milliseconds per feed) when processing large feeds or multiple feeds concurrently.
+**Action:** Encapsulate CPU-intensive parsing logic into synchronous helper methods and execute them in a separate thread using `asyncio.to_thread`. This ensures the event loop remains responsive for other I/O tasks.
