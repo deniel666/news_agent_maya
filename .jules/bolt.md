@@ -1,3 +1,3 @@
-## 2026-02-09 - Sequential I/O in Aggregators
-**Learning:** The `NewsAggregatorService` was fetching RSS and Nitter feeds sequentially, which is a major bottleneck as these are I/O bound operations. This pattern often goes unnoticed in initial implementations but scales poorly.
-**Action:** Always use `asyncio.gather` for independent I/O bound tasks in aggregators.
+## 2026-02-18 - Async Blocking with feedparser
+**Learning:** CPU-bound libraries like `feedparser` and `BeautifulSoup` (even with `lxml`) block the asyncio event loop significantly when processing large XML/HTML content. In a FastAPI app, this can stall the entire server, making it unresponsive to health checks and other requests, even if the total processing time is short.
+**Action:** Always offload such parsing to a thread pool using `await asyncio.to_thread(...)` (Python 3.9+) or `loop.run_in_executor`. This increases total wall-clock time slightly (due to GIL/overhead) but keeps the event loop responsive, which is critical for web servers.
