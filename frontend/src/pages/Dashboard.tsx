@@ -8,7 +8,6 @@ import {
 import {
   FileText,
   Video,
-  Share2,
   Clock,
   Play,
   CheckCircle,
@@ -17,21 +16,22 @@ import {
 import { formatDateTime, getStatusColor, getStatusLabel } from '../lib/utils'
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
+import { LoadingSpinner } from '../components/LoadingSpinner'
 
 export default function Dashboard() {
   const [isCreating, setIsCreating] = useState(false)
 
-  const { data: stats } = useQuery({
+  const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: getDashboardStats,
   })
 
-  const { data: activity } = useQuery({
+  const { data: activity, isLoading: activityLoading } = useQuery({
     queryKey: ['recent-activity'],
     queryFn: getRecentActivity,
   })
 
-  const { data: weeks } = useQuery({
+  const { data: weeks, isLoading: weeksLoading } = useQuery({
     queryKey: ['weekly-summary'],
     queryFn: getWeeklySummary,
   })
@@ -70,56 +70,74 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          icon={FileText}
-          label="Total Briefings"
-          value={stats?.total_briefings || 0}
-          color="maya"
-        />
-        <StatCard
-          icon={CheckCircle}
-          label="Completed"
-          value={stats?.completed_briefings || 0}
-          color="green"
-        />
-        <StatCard
-          icon={Clock}
-          label="Pending Approvals"
-          value={stats?.pending_approvals || 0}
-          color="yellow"
-        />
-        <StatCard
-          icon={Video}
-          label="Videos Generated"
-          value={stats?.total_videos || 0}
-          color="purple"
-        />
-      </div>
+      {statsLoading ? (
+        <div className="flex justify-center py-12">
+          <LoadingSpinner size="lg" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard
+            icon={FileText}
+            label="Total Briefings"
+            value={stats?.total_briefings || 0}
+            color="maya"
+          />
+          <StatCard
+            icon={CheckCircle}
+            label="Completed"
+            value={stats?.completed_briefings || 0}
+            color="green"
+          />
+          <StatCard
+            icon={Clock}
+            label="Pending Approvals"
+            value={stats?.pending_approvals || 0}
+            color="yellow"
+          />
+          <StatCard
+            icon={Video}
+            label="Videos Generated"
+            value={stats?.total_videos || 0}
+            color="purple"
+          />
+        </div>
+      )}
 
       {/* Weekly Summary */}
       <div className="card">
         <h2 className="text-xl font-semibold text-white mb-4">Weekly Summary</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {weeks?.map((week: any) => (
-            <WeekCard key={`${week.year}-${week.week_number}`} week={week} />
-          ))}
-        </div>
+        {weeksLoading ? (
+          <div className="flex justify-center py-8">
+            <LoadingSpinner size="md" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {weeks?.map((week: any) => (
+              <WeekCard key={`${week.year}-${week.week_number}`} week={week} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Recent Activity */}
       <div className="card">
         <h2 className="text-xl font-semibold text-white mb-4">Recent Activity</h2>
-        <div className="space-y-4">
-          {activity?.length === 0 && (
-            <p className="text-gray-400 text-center py-8">
-              No activity yet. Start your first briefing!
-            </p>
-          )}
-          {activity?.map((item: any) => (
-            <ActivityItem key={item.thread_id} item={item} />
-          ))}
-        </div>
+        {activityLoading ? (
+          <div className="flex justify-center py-8">
+            <LoadingSpinner size="md" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {activity?.length === 0 && (
+              <p className="text-gray-400 text-center py-8">
+                No activity yet. Start your first briefing!
+              </p>
+            )}
+            {activity?.map((item: any) => (
+              <ActivityItem key={item.thread_id} item={item} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { FileText, Plus, ChevronRight } from 'lucide-react'
 import { formatDateTime, getStatusColor, getStatusLabel } from '../lib/utils'
 import { useState } from 'react'
+import { LoadingSpinner } from '../components/LoadingSpinner'
 
 export default function Briefings() {
   const [isCreating, setIsCreating] = useState(false)
@@ -48,7 +49,9 @@ export default function Briefings() {
       {/* Briefings List */}
       <div className="card">
         {isLoading ? (
-          <div className="text-center py-8 text-gray-400">Loading...</div>
+          <div className="flex justify-center py-12">
+            <LoadingSpinner size="lg" />
+          </div>
         ) : briefings?.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
