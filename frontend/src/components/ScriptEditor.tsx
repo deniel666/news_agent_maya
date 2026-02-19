@@ -58,14 +58,15 @@ export default function ScriptEditor({
             <>
               <button
                 onClick={handleReset}
-                className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+                className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
                 title="Reset changes"
+                aria-label="Reset changes"
               >
                 <RotateCcw className="w-4 h-4 text-gray-400" />
               </button>
               <button
                 onClick={handleSave}
-                className="btn btn-primary text-sm flex items-center gap-1"
+                className="btn btn-primary text-sm flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
               >
                 <Save className="w-3 h-3" />
                 Save
@@ -74,8 +75,9 @@ export default function ScriptEditor({
           )}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+            className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
             title={isExpanded ? 'Minimize' : 'Expand'}
+            aria-label={isExpanded ? 'Minimize editor' : 'Expand editor'}
           >
             {isExpanded ? (
               <Minimize2 className="w-4 h-4 text-gray-400" />
@@ -98,10 +100,11 @@ export default function ScriptEditor({
           className={cn(
             'w-full bg-dark-bg text-gray-300 text-sm font-sans p-4 rounded-lg',
             'border border-dark-border focus:border-maya-500 focus:ring-1 focus:ring-maya-500',
-            'resize-none transition-colors',
+            'resize-none transition-colors focus-visible:outline-none',
             isExpanded ? 'min-h-[calc(100vh-200px)]' : 'min-h-[200px]'
           )}
           placeholder="Enter script content..."
+          aria-label={`Script content for ${title}`}
         />
       )}
 
@@ -112,7 +115,7 @@ export default function ScriptEditor({
           <span>~{estimatedSeconds}s</span>
         </div>
         {hasChanges && (
-          <span className="text-yellow-400">Unsaved changes</span>
+          <span className="text-yellow-400" role="status">Unsaved changes</span>
         )}
       </div>
     </div>
