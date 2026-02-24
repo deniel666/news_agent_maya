@@ -4,7 +4,12 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from datetime import datetime, timedelta
 
-from app.services.news_aggregator import NewsAggregatorService
+from app.services.news_aggregator import (
+    NewsAggregatorService,
+    _clean_html_text,
+    _parse_date_str,
+    _process_rss_content
+)
 
 
 class MockResponse:
@@ -56,10 +61,15 @@ class TestNewsAggregatorService:
             mock_client.get.return_value = MockResponse(200, xml_content)
             mock_session.return_value = mock_client
 
+            # Since we are using ProcessPoolExecutor, we need to ensure the worker can run the function.
+            # However, mocking the executor might be safer to avoid spawning processes during tests.
+            # But let's try with real executor first.
             articles = await aggregator.fetch_rss_feeds(days=7)
 
             # Should have fetched articles
             assert isinstance(articles, list)
+            # Since we iterate over SEA_RSS_FEEDS (9 feeds), and we return 1 article per feed (same content)
+            # We expect 9 articles.
             assert len(articles) > 0
 
     @pytest.mark.asyncio
@@ -92,36 +102,36 @@ class TestNewsAggregatorService:
                 mock_rss.assert_called_once_with(7)
                 mock_nitter.assert_called_once_with(7)
 
-    def test_clean_html(self, aggregator):
+    def test_clean_html_text(self):
         """Test HTML cleaning."""
         html = "<p>Hello <b>World</b></p><script>evil()</script>"
-        clean = aggregator._clean_html(html)
+        clean = _clean_html_text(html)
 
         assert "Hello" in clean
         assert "World" in clean
         assert "<p>" not in clean
         assert "<script>" not in clean
 
-    def test_clean_html_empty(self, aggregator):
+    def test_clean_html_empty(self):
         """Test HTML cleaning with empty input."""
-        assert aggregator._clean_html("") == ""
-        assert aggregator._clean_html(None) == ""
+        assert _clean_html_text("") == ""
+        assert _clean_html_text(None) == ""
 
-    def test_parse_date_valid(self, aggregator):
+    def test_parse_date_str_valid(self):
         """Test date parsing with valid input."""
         date_str = "Mon, 20 Jan 2026 10:00:00 GMT"
-        result = aggregator._parse_date(date_str)
+        result = _parse_date_str(date_str)
 
         assert result is not None
         assert result.year == 2026
         assert result.month == 1
         assert result.day == 20
 
-    def test_parse_date_invalid(self, aggregator):
+    def test_parse_date_str_invalid(self):
         """Test date parsing with invalid input."""
-        assert aggregator._parse_date("not a date") is None
-        assert aggregator._parse_date("") is None
-        assert aggregator._parse_date(None) is None
+        assert _parse_date_str("not a date") is None
+        assert _parse_date_str("") is None
+        assert _parse_date_str(None) is None
 
     @pytest.mark.asyncio
     async def test_close(self, aggregator):
@@ -169,4 +179,3 @@ class TestNitterIntegration:
             # Should have tried multiple instances
             assert call_count >= 1
             # Should have found at least one article if parsing worked
-            # (assuming feedparser works with the string)

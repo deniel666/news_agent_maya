@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 from bs4 import BeautifulSoup
 import re
+from concurrent.futures import ProcessPoolExecutor
+from dateutil import parser
 
 from app.core.config import settings
 from app.models.schemas import NewsArticle
@@ -51,6 +53,91 @@ TWITTER_ACCOUNTS = [
 ]
 
 
+# Standalone helper functions for ProcessPoolExecutor to offload CPU-bound tasks
+
+def _parse_date_str(date_str: Optional[str]) -> Optional[datetime]:
+    """Parse date string from various formats."""
+    if not date_str:
+        return None
+    try:
+        dt = parser.parse(date_str)
+        # Remove timezone info for consistency
+        return dt.replace(tzinfo=None)
+    except Exception:
+        return None
+
+
+def _clean_html_text(html: str) -> str:
+    """Remove HTML tags and clean text."""
+    if not html:
+        return ""
+
+    soup = BeautifulSoup(html, "lxml")
+    text = soup.get_text(separator=" ")
+
+    # Clean up whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+
+    return text
+
+
+def _process_rss_content(content: str, source_name: str, cutoff: datetime) -> List[NewsArticle]:
+    """Parse RSS content and extract articles."""
+    articles = []
+    try:
+        feed = feedparser.parse(content)
+
+        for entry in feed.entries[:30]:
+            published = _parse_date_str(entry.get("published"))
+            if published and published < cutoff:
+                continue
+
+            # Clean HTML from content
+            content_raw = entry.get("summary", "") or entry.get("description", "")
+            content_clean = _clean_html_text(content_raw)
+
+            articles.append(NewsArticle(
+                source_type="rss",
+                source_name=source_name,
+                title=entry.get("title", ""),
+                content=content_clean,
+                url=entry.get("link", ""),
+                published_at=published or datetime.utcnow(),
+            ))
+    except Exception as e:
+        # Logging in worker process might be tricky, but print usually works
+        print(f"Error parsing RSS {source_name}: {e}")
+
+    return articles
+
+
+def _process_nitter_content(content: str, username: str, cutoff: datetime) -> List[NewsArticle]:
+    """Parse Nitter RSS content and extract tweets."""
+    articles = []
+    try:
+        feed = feedparser.parse(content)
+
+        for entry in feed.entries[:20]:
+            published = _parse_date_str(entry.get("published"))
+            if published and published < cutoff:
+                continue
+
+            content_clean = _clean_html_text(entry.get("title", ""))
+
+            articles.append(NewsArticle(
+                source_type="nitter",
+                source_name=f"@{username}",
+                title=None,
+                content=content_clean,
+                url=entry.get("link", ""),
+                published_at=published or datetime.utcnow(),
+            ))
+    except Exception:
+        pass
+
+    return articles
+
+
 class NewsAggregatorService:
     def __init__(self):
         self.session: Optional[aiohttp.ClientSession] = None
@@ -89,47 +176,21 @@ class NewsAggregatorService:
 
         return articles
 
-    async def _fetch_single_rss_feed(self, session: aiohttp.ClientSession, source_name: str, feed_url: str, cutoff: datetime) -> List[NewsArticle]:
-        articles = []
-        try:
-            async with session.get(feed_url) as response:
-                if response.status == 200:
-                    content = await response.text()
-                    feed = feedparser.parse(content)
-
-                    for entry in feed.entries[:30]:
-                        published = self._parse_date(entry.get("published"))
-                        if published and published < cutoff:
-                            continue
-
-                        # Clean HTML from content
-                        content_raw = entry.get("summary", "") or entry.get("description", "")
-                        content_clean = self._clean_html(content_raw)
-
-                        articles.append(NewsArticle(
-                            source_type="rss",
-                            source_name=source_name,
-                            title=entry.get("title", ""),
-                            content=content_clean,
-                            url=entry.get("link", ""),
-                            published_at=published or datetime.utcnow(),
-                        ))
-        except Exception as e:
-            print(f"Error fetching RSS {source_name}: {e}")
-
-        return articles
-
     async def fetch_rss_feeds(self, days: int = 7) -> List[NewsArticle]:
         """Fetch articles from RSS feeds."""
         cutoff = datetime.utcnow() - timedelta(days=days)
         session = await self._get_session()
+        loop = asyncio.get_running_loop()
 
-        tasks = [
-            self._fetch_single_rss_feed(session, source_name, feed_url, cutoff)
-            for source_name, feed_url in SEA_RSS_FEEDS.items()
-        ]
+        # Use ProcessPoolExecutor to offload CPU-bound parsing
+        # This prevents blocking the event loop during heavy XML parsing and HTML cleaning
+        with ProcessPoolExecutor() as pool:
+            tasks = [
+                self._fetch_single_rss_feed(session, pool, source_name, feed_url, cutoff)
+                for source_name, feed_url in SEA_RSS_FEEDS.items()
+            ]
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
 
         articles = []
         for result in results:
@@ -143,51 +204,37 @@ class NewsAggregatorService:
     async def _fetch_single_rss_feed(
         self,
         session: aiohttp.ClientSession,
+        pool: ProcessPoolExecutor,
         source_name: str,
         feed_url: str,
         cutoff: datetime
     ) -> List[NewsArticle]:
         """Fetch and parse a single RSS feed."""
-        articles = []
         try:
             async with session.get(feed_url) as response:
                 if response.status == 200:
                     content = await response.text()
-                    feed = feedparser.parse(content)
-
-                    for entry in feed.entries[:30]:
-                        published = self._parse_date(entry.get("published"))
-                        if published and published < cutoff:
-                            continue
-
-                        # Clean HTML from content
-                        content_raw = entry.get("summary", "") or entry.get("description", "")
-                        content_clean = self._clean_html(content_raw)
-
-                        articles.append(NewsArticle(
-                            source_type="rss",
-                            source_name=source_name,
-                            title=entry.get("title", ""),
-                            content=content_clean,
-                            url=entry.get("link", ""),
-                            published_at=published or datetime.utcnow(),
-                        ))
+                    # Offload parsing to process pool
+                    loop = asyncio.get_running_loop()
+                    return await loop.run_in_executor(pool, _process_rss_content, content, source_name, cutoff)
         except Exception as e:
             print(f"Error fetching RSS {source_name}: {e}")
 
-        return articles
+        return []
 
     async def fetch_nitter_feeds(self, days: int = 7) -> List[NewsArticle]:
         """Fetch tweets via Nitter RSS (free Twitter alternative)."""
         cutoff = datetime.utcnow() - timedelta(days=days)
         session = await self._get_session()
 
-        tasks = [
-            self._fetch_single_twitter_user(session, username, cutoff)
-            for username in TWITTER_ACCOUNTS
-        ]
+        # Use ProcessPoolExecutor to offload CPU-bound parsing
+        with ProcessPoolExecutor() as pool:
+            tasks = [
+                self._fetch_single_twitter_user(session, pool, username, cutoff)
+                for username in TWITTER_ACCOUNTS
+            ]
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
 
         articles = []
         for result in results:
@@ -201,40 +248,25 @@ class NewsAggregatorService:
     async def _fetch_single_twitter_user(
         self,
         session: aiohttp.ClientSession,
+        pool: ProcessPoolExecutor,
         username: str,
         cutoff: datetime
     ) -> List[NewsArticle]:
         """Fetch tweets for a single user with fallback."""
-        articles = []
         for nitter_instance in NITTER_INSTANCES:
             try:
                 url = f"{nitter_instance}/{username}/rss"
                 async with session.get(url) as response:
                     if response.status == 200:
                         content = await response.text()
-                        feed = feedparser.parse(content)
-
-                        for entry in feed.entries[:20]:
-                            published = self._parse_date(entry.get("published"))
-                            if published and published < cutoff:
-                                continue
-
-                            content_clean = self._clean_html(entry.get("title", ""))
-
-                            articles.append(NewsArticle(
-                                source_type="nitter",
-                                source_name=f"@{username}",
-                                title=None,
-                                content=content_clean,
-                                url=entry.get("link", ""),
-                                published_at=published or datetime.utcnow(),
-                            ))
-                        return articles  # Success, return immediately
+                        # Offload parsing to process pool
+                        loop = asyncio.get_running_loop()
+                        articles = await loop.run_in_executor(pool, _process_nitter_content, content, username, cutoff)
+                        return articles
             except Exception:
                 continue  # Try next Nitter instance
 
-        # Flatten list of lists
-        return [article for sublist in results for article in sublist]
+        return []
 
     async def fetch_telegram_channels(self, days: int = 7) -> List[NewsArticle]:
         """Fetch messages from Telegram channels."""
@@ -277,32 +309,6 @@ class NewsAggregatorService:
             print(f"Telegram error: {e}")
 
         return articles
-
-    def _parse_date(self, date_str: Optional[str]) -> Optional[datetime]:
-        """Parse date string from various formats."""
-        if not date_str:
-            return None
-
-        from dateutil import parser
-        try:
-            dt = parser.parse(date_str)
-            # Remove timezone info for consistency
-            return dt.replace(tzinfo=None)
-        except Exception:
-            return None
-
-    def _clean_html(self, html: str) -> str:
-        """Remove HTML tags and clean text."""
-        if not html:
-            return ""
-
-        soup = BeautifulSoup(html, "lxml")
-        text = soup.get_text(separator=" ")
-
-        # Clean up whitespace
-        text = re.sub(r"\s+", " ", text).strip()
-
-        return text
 
 
 # Singleton instance
