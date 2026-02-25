@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Save, RotateCcw, Maximize2, Minimize2 } from 'lucide-react'
+import { Save, RotateCcw, Maximize2, Minimize2, AlertCircle } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 interface ScriptEditorProps {
@@ -58,14 +58,16 @@ export default function ScriptEditor({
             <>
               <button
                 onClick={handleReset}
-                className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+                className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus-visible:outline-none"
                 title="Reset changes"
+                aria-label="Reset changes"
               >
                 <RotateCcw className="w-4 h-4 text-gray-400" />
               </button>
               <button
                 onClick={handleSave}
-                className="btn btn-primary text-sm flex items-center gap-1"
+                className="btn btn-primary text-sm flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-maya-500 focus-visible:outline-none"
+                aria-label="Save changes"
               >
                 <Save className="w-3 h-3" />
                 Save
@@ -74,8 +76,9 @@ export default function ScriptEditor({
           )}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+            className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus-visible:outline-none"
             title={isExpanded ? 'Minimize' : 'Expand'}
+            aria-label={isExpanded ? 'Minimize editor' : 'Expand editor'}
           >
             {isExpanded ? (
               <Minimize2 className="w-4 h-4 text-gray-400" />
@@ -102,17 +105,27 @@ export default function ScriptEditor({
             isExpanded ? 'min-h-[calc(100vh-200px)]' : 'min-h-[200px]'
           )}
           placeholder="Enter script content..."
+          aria-label="Script content"
         />
       )}
 
       {/* Footer stats */}
       <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
-        <div className="flex items-center gap-4">
+        <div
+          className="flex items-center gap-4"
+          aria-label={`Stats: ${wordCount} words, approximately ${estimatedSeconds} seconds reading time`}
+        >
           <span>{wordCount} words</span>
           <span>~{estimatedSeconds}s</span>
         </div>
         {hasChanges && (
-          <span className="text-yellow-400">Unsaved changes</span>
+          <span
+            className="flex items-center gap-1.5 text-yellow-400 font-medium"
+            role="status"
+          >
+            <AlertCircle className="w-3.5 h-3.5" />
+            Unsaved changes
+          </span>
         )}
       </div>
     </div>
