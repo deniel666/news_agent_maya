@@ -1,3 +1,4 @@
+import asyncio
 from supabase import create_client, Client
 from typing import Optional, List, Any
 from datetime import datetime, timedelta
@@ -639,17 +640,19 @@ class DatabaseService:
                 "total_posts": len(self._posts),
             }
 
-        briefings = self.client.table("weekly_briefings").select(
-            "id, status", count="exact"
-        ).execute()
+        # Run independent queries in parallel
+        # supabase-python execute() is blocking, so we run in threads
+        briefings_task = asyncio.to_thread(
+            lambda: self.client.table("weekly_briefings").select("id, status", count="exact").execute()
+        )
+        videos_task = asyncio.to_thread(
+            lambda: self.client.table("weekly_videos").select("id", count="exact").execute()
+        )
+        posts_task = asyncio.to_thread(
+            lambda: self.client.table("social_posts").select("id", count="exact").execute()
+        )
 
-        videos = self.client.table("weekly_videos").select(
-            "id", count="exact"
-        ).execute()
-
-        posts = self.client.table("social_posts").select(
-            "id", count="exact"
-        ).execute()
+        briefings, videos, posts = await asyncio.gather(briefings_task, videos_task, posts_task)
 
         total_briefings = briefings.count or 0
         completed = len([
