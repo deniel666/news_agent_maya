@@ -292,8 +292,9 @@ function SourceRow({
         <button
           onClick={handleTest}
           disabled={testing}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 outline-none"
           title="Test source"
+          aria-label="Test source"
         >
           <RefreshCw
             className={cn('w-4 h-4 text-gray-400', testing && 'animate-spin')}
@@ -301,8 +302,9 @@ function SourceRow({
         </button>
         <button
           onClick={onToggle}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 outline-none"
           title={source.enabled ? 'Disable' : 'Enable'}
+          aria-label={source.enabled ? 'Disable source' : 'Enable source'}
         >
           {source.enabled ? (
             <ToggleRight className="w-5 h-5 text-green-400" />
@@ -312,15 +314,17 @@ function SourceRow({
         </button>
         <button
           onClick={onEdit}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 outline-none"
           title="Edit"
+          aria-label="Edit source"
         >
           <Edit2 className="w-4 h-4 text-gray-400" />
         </button>
         <button
           onClick={onDelete}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 outline-none"
           title="Delete"
+          aria-label="Delete source"
         >
           <Trash2 className="w-4 h-4 text-red-400" />
         </button>
@@ -362,8 +366,9 @@ function SourceModal({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Name</label>
+            <label htmlFor="source-name" className="block text-sm text-gray-400 mb-1">Name</label>
             <input
+              id="source-name"
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -374,8 +379,9 @@ function SourceModal({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Type</label>
+            <label htmlFor="source-type" className="block text-sm text-gray-400 mb-1">Type</label>
             <select
+              id="source-type"
               value={formData.source_type}
               onChange={(e) =>
                 setFormData({ ...formData, source_type: e.target.value as SourceType })
@@ -389,7 +395,7 @@ function SourceModal({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1">
+            <label htmlFor="source-url" className="block text-sm text-gray-400 mb-1">
               {formData.source_type === 'rss'
                 ? 'RSS Feed URL'
                 : formData.source_type === 'telegram'
@@ -397,6 +403,7 @@ function SourceModal({
                 : 'Twitter Username'}
             </label>
             <input
+              id="source-url"
               type="text"
               value={formData.url}
               onChange={(e) => setFormData({ ...formData, url: e.target.value })}
@@ -413,8 +420,9 @@ function SourceModal({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Category</label>
+            <label htmlFor="source-category" className="block text-sm text-gray-400 mb-1">Category</label>
             <select
+              id="source-category"
               value={formData.category}
               onChange={(e) =>
                 setFormData({ ...formData, category: e.target.value })
