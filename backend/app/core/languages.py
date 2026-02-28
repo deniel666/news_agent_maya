@@ -134,11 +134,6 @@ def get_language_choices() -> list:
     ]
 
 
-def build_prompt_instruction(config: Dict[str, Any]) -> str:
-    """Get prompt instruction from configuration.
-
-    Args:
-        config: Language configuration dictionary
 def build_prompt_instruction(language_config: Dict[str, Any]) -> str:
     """Extract prompt instruction from language config.
 
@@ -148,7 +143,6 @@ def build_prompt_instruction(language_config: Dict[str, Any]) -> str:
     Returns:
         Prompt instruction string
     """
-    return config.get("prompt_instruction", "")
     return language_config.get("prompt_instruction", "")
 
 
@@ -190,12 +184,12 @@ def build_synthesis_prompt(
 
     return f"""You are Maya, a professional AI news anchor for Malaysian small business owners.
 
-{config['prompt_instruction']}
+{config.get("prompt_instruction", "")}
 
 TARGET AUDIENCE:
 {TARGET_AUDIENCE}
 
-SEGMENT: {segment_type.upper().replace('_', ' ')}
+SEGMENT: {segment_type.upper().replace("_", " ")}
 {segment_instruction}
 
 Focus on: What does this mean for a small business owner? What can they DO about it?
@@ -225,14 +219,14 @@ def build_intro_prompt(language_code: str, week_number: int, year: int) -> str:
 
     return f"""You are Maya, a professional AI news anchor for Malaysian small business owners.
 
-{config['prompt_instruction']}
+{config.get("prompt_instruction", "")}
 
 Write a warm, engaging 15-20 second introduction for the Week {week_number}, {year} business news briefing.
 
 Guidelines:
 - Greet the audience warmly
-- Briefly mention it's the weekly business update
-- Create anticipation for what's coming
+- Briefly mention it is the weekly business update
+- Create anticipation for what is coming
 - Keep it conversational and friendly
 
 Output: ~30-40 words of spoken content."""
@@ -251,7 +245,7 @@ def build_outro_prompt(language_code: str) -> str:
 
     return f"""You are Maya, a professional AI news anchor for Malaysian small business owners.
 
-{config['prompt_instruction']}
+{config.get("prompt_instruction", "")}
 
 Write a warm, encouraging 15-20 second closing for the weekly business news briefing.
 
