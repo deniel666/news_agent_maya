@@ -173,11 +173,17 @@ export default function ContentLibrary() {
           </div>
 
           {/* View Mode */}
-          <div className="flex gap-1 bg-dark-bg rounded-lg p-1">
+          <div
+            className="flex gap-1 bg-dark-bg rounded-lg p-1"
+            role="group"
+            aria-label="View mode"
+          >
             <button
               onClick={() => setViewMode('grid')}
+              aria-label="Grid view"
+              aria-pressed={viewMode === 'grid'}
               className={cn(
-                'p-2 rounded',
+                'p-2 rounded focus-visible:ring-2 focus-visible:ring-maya-500',
                 viewMode === 'grid' ? 'bg-dark-card text-white' : 'text-gray-500'
               )}
             >
@@ -185,8 +191,10 @@ export default function ContentLibrary() {
             </button>
             <button
               onClick={() => setViewMode('list')}
+              aria-label="List view"
+              aria-pressed={viewMode === 'list'}
               className={cn(
-                'p-2 rounded',
+                'p-2 rounded focus-visible:ring-2 focus-visible:ring-maya-500',
                 viewMode === 'list' ? 'bg-dark-card text-white' : 'text-gray-500'
               )}
             >
@@ -364,7 +372,10 @@ function StoryCard({
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="p-1 hover:bg-dark-bg rounded"
+              aria-label="Story options"
+              aria-expanded={showMenu}
+              aria-haspopup="menu"
+              className="p-1 hover:bg-dark-bg rounded focus-visible:ring-2 focus-visible:ring-maya-500"
             >
               <MoreVertical className="w-4 h-4 text-gray-500" />
             </button>
@@ -501,15 +512,18 @@ function StoryRow({
       <div className="flex items-center gap-1">
         <Link
           to={`/content/${story.id}`}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus-visible:ring-2 focus-visible:ring-maya-500"
           title="View"
+          aria-label="View story"
         >
           <Eye className="w-4 h-4 text-gray-400" />
         </Link>
         <button
           onClick={onToggleFeatured}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus-visible:ring-2 focus-visible:ring-maya-500"
           title={story.featured ? 'Unfeature' : 'Feature'}
+          aria-label={story.featured ? 'Unfeature story' : 'Feature story'}
+          aria-pressed={story.featured}
         >
           <Star
             className={cn(
@@ -522,15 +536,17 @@ function StoryRow({
         </button>
         <button
           onClick={onArchive}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus-visible:ring-2 focus-visible:ring-maya-500"
           title="Archive"
+          aria-label="Archive story"
         >
           <Archive className="w-4 h-4 text-gray-400" />
         </button>
         <button
           onClick={onDelete}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus-visible:ring-2 focus-visible:ring-maya-500"
           title="Delete"
+          aria-label="Delete story"
         >
           <Trash2 className="w-4 h-4 text-red-400" />
         </button>
