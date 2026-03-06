@@ -1,7 +1,8 @@
 """Service for on-demand article-to-video generation."""
 
 import httpx
-from typing import List, Optional
+import asyncio
+from typing import List, Optional, Tuple
 from uuid import UUID
 from bs4 import BeautifulSoup
 from langchain_openai import ChatOpenAI
@@ -113,9 +114,15 @@ class OnDemandService:
             scripts = {}
             captions = {}
 
-            for lang in languages:
+            async def _generate_for_lang(lang: Language) -> Tuple[Language, str, str]:
                 script = await self._generate_script(content, lang)
                 caption = await self._generate_caption(title, script[:200], lang)
+                return lang, script, caption
+
+            # ⚡ Bolt: Run script and caption generation concurrently for all requested languages
+            # This is an I/O bound operation calling the LLM API, so asyncio.gather is highly effective here
+            results = await asyncio.gather(*[_generate_for_lang(lang) for lang in languages])
+            for lang, script, caption in results:
                 scripts[lang.value] = script
                 captions[lang.value] = caption
 
@@ -325,10 +332,16 @@ class OnDemandService:
         scripts = {}
         captions = {}
 
-        for lang_str in job.languages:
+        async def _generate_for_lang(lang_str: str) -> Tuple[Language, str, str]:
             lang = Language(lang_str)
             script = await self._generate_script(job.original_content, lang)
             caption = await self._generate_caption(job.title, script[:200], lang)
+            return lang, script, caption
+
+        # ⚡ Bolt: Run script and caption generation concurrently for all requested languages
+        # This is an I/O bound operation calling the LLM API, so asyncio.gather is highly effective here
+        results = await asyncio.gather(*[_generate_for_lang(lang_str) for lang_str in job.languages])
+        for lang, script, caption in results:
             scripts[lang.value] = script
             captions[lang.value] = caption
 
