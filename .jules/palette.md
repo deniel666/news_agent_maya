@@ -1,0 +1,3 @@
+## 2024-03-07 - Accessible Icon-Only Buttons
+**Learning:** Found a pattern across the app where icon-only buttons (like in `ScriptEditor`) lack explicit `aria-label` attributes and keyboard focus indicators (`focus-visible`). This makes them inaccessible to screen readers and difficult to use via keyboard navigation.
+**Action:** Always add `aria-label` to icon-only buttons and ensure interactive elements have clear focus states using Tailwind's `focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500` utilities. For buttons with existing backgrounds (like primary buttons), adding `focus-visible:ring-offset-2` improves visibility.
