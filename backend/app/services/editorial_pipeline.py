@@ -1,6 +1,7 @@
 """Editorial Pipeline - Integrates news aggregation with editorial review system."""
 
 import re
+import asyncio
 from datetime import datetime, timedelta
 from typing import List, Optional
 from uuid import UUID
@@ -56,16 +57,29 @@ class EditorialPipelineService:
         skipped_count = 0
         errors = []
 
+        # Extract URLs to check duplicates in a single query
+        urls = [article.url for article in articles if article.url]
+        existing_urls = set()
+
+        if urls:
+            try:
+                # Batch query to fetch all existing URLs at once
+                def fetch_existing():
+                    return supabase.table("raw_stories").select("original_url").in_("original_url", urls).execute()
+
+                existing_response = await asyncio.to_thread(fetch_existing)
+                if existing_response.data:
+                    existing_urls = {item["original_url"] for item in existing_response.data if item.get("original_url")}
+            except Exception as e:
+                errors.append(f"Batch duplicate check failed: {str(e)}")
+
+        new_stories_data = []
         for article in articles:
             try:
-                # Check for duplicates (by URL or title+source)
-                if article.url:
-                    existing = supabase.table("raw_stories").select("id").eq(
-                        "original_url", article.url
-                    ).execute()
-                    if existing.data:
-                        skipped_count += 1
-                        continue
+                # Check for duplicates using the pre-fetched set (O(1) lookup)
+                if article.url and article.url in existing_urls:
+                    skipped_count += 1
+                    continue
 
                 # Convert to markdown format
                 content_markdown = self._to_markdown(article)
@@ -92,18 +106,32 @@ class EditorialPipelineService:
                     "published_at": article.published_at.isoformat() if article.published_at else None,
                     "status": "pending",
                 }
-
-                response = supabase.table("raw_stories").insert(raw_story_data).execute()
-                if response.data:
-                    stored_count += 1
-
-                    # Optionally auto-score
-                    if auto_score and response.data[0]:
-                        await self._score_story(response.data[0]["id"])
-
+                new_stories_data.append(raw_story_data)
+                # Mark as seen to handle duplicate URLs within the current batch of articles
+                if article.url:
+                    existing_urls.add(article.url)
             except Exception as e:
                 errors.append(f"{article.source_name}: {str(e)}")
                 continue
+
+        inserted_story_ids = []
+        if new_stories_data:
+            try:
+                # Bulk insert all new stories at once
+                def insert_stories():
+                    return supabase.table("raw_stories").insert(new_stories_data).execute()
+
+                response = await asyncio.to_thread(insert_stories)
+                if response.data:
+                    stored_count += len(response.data)
+                    inserted_story_ids = [item["id"] for item in response.data if "id" in item]
+            except Exception as e:
+                errors.append(f"Batch insert failed: {str(e)}")
+
+        # Optionally auto-score the newly inserted stories concurrently
+        if auto_score and inserted_story_ids:
+            score_tasks = [self._score_story(story_id) for story_id in inserted_story_ids]
+            await asyncio.gather(*score_tasks, return_exceptions=True)
 
         return {
             "total_fetched": len(articles),
