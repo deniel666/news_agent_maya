@@ -1,6 +1,7 @@
 """Editorial Pipeline - Integrates news aggregation with editorial review system."""
 
 import re
+import asyncio
 from datetime import datetime, timedelta
 from typing import List, Optional
 from uuid import UUID
@@ -51,21 +52,37 @@ class EditorialPipelineService:
         # Aggregate from all sources
         articles = await self.aggregator.aggregate_all(days=days)
 
+        # Optimization: Fetch existing URLs in a single batched query using asyncio.to_thread
+        urls_to_check = list({a.url for a in articles if a.url})
+        existing_urls = set()
+
+        if urls_to_check:
+            try:
+                def fetch_existing():
+                    # Batch check for up to N urls (Supabase has limits, but usually list is moderate)
+                    return supabase.table("raw_stories").select("original_url").in_(
+                        "original_url", urls_to_check
+                    ).execute()
+
+                response = await asyncio.to_thread(fetch_existing)
+                if response.data:
+                    existing_urls = {item["original_url"] for item in response.data}
+            except Exception as e:
+                print(f"Error checking existing URLs: {e}")
+
         # Store each article as a raw story
         stored_count = 0
         skipped_count = 0
         errors = []
 
+        raw_stories_to_insert = []
+
         for article in articles:
             try:
-                # Check for duplicates (by URL or title+source)
-                if article.url:
-                    existing = supabase.table("raw_stories").select("id").eq(
-                        "original_url", article.url
-                    ).execute()
-                    if existing.data:
-                        skipped_count += 1
-                        continue
+                # Check for duplicates using the pre-fetched set (O(1) lookup)
+                if article.url and article.url in existing_urls:
+                    skipped_count += 1
+                    continue
 
                 # Convert to markdown format
                 content_markdown = self._to_markdown(article)
@@ -92,18 +109,28 @@ class EditorialPipelineService:
                     "published_at": article.published_at.isoformat() if article.published_at else None,
                     "status": "pending",
                 }
-
-                response = supabase.table("raw_stories").insert(raw_story_data).execute()
-                if response.data:
-                    stored_count += 1
-
-                    # Optionally auto-score
-                    if auto_score and response.data[0]:
-                        await self._score_story(response.data[0]["id"])
+                raw_stories_to_insert.append(raw_story_data)
 
             except Exception as e:
                 errors.append(f"{article.source_name}: {str(e)}")
                 continue
+
+        # Optimization: Bulk insert raw stories using asyncio.to_thread
+        if raw_stories_to_insert:
+            try:
+                def bulk_insert():
+                    return supabase.table("raw_stories").insert(raw_stories_to_insert).execute()
+
+                response = await asyncio.to_thread(bulk_insert)
+                if response.data:
+                    stored_count += len(response.data)
+
+                    # Optionally auto-score using asyncio.gather for concurrency
+                    if auto_score:
+                        score_tasks = [self._score_story(item["id"]) for item in response.data]
+                        await asyncio.gather(*score_tasks)
+            except Exception as e:
+                errors.append(f"Bulk insert error: {str(e)}")
 
         return {
             "total_fetched": len(articles),
