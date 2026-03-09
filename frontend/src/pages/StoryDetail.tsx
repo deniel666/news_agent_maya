@@ -86,18 +86,18 @@ export default function StoryDetail() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start gap-4">
-        <Link
+        <Link aria-label="Back to content"
           to="/content"
-          className="p-2 hover:bg-dark-card rounded-lg transition-colors mt-1"
+          className="p-2 hover:bg-dark-card rounded-lg transition-colors mt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
         >
           <ArrowLeft className="w-5 h-5 text-gray-400" />
         </Link>
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-white">{story.title}</h1>
-            <button
+            <button aria-label="Toggle feature"
               onClick={() => featureMutation.mutate()}
-              className="p-1 hover:bg-dark-card rounded"
+              className="p-1 hover:bg-dark-card rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
             >
               <Star
                 className={cn(
@@ -344,9 +344,9 @@ function VideoCard({
             Copy URL
           </button>
         </div>
-        <button
+        <button aria-label="Delete video"
           onClick={onDelete}
-          className="p-2 hover:bg-dark-bg rounded-lg text-red-400"
+          className="p-2 hover:bg-dark-bg rounded-lg text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
         >
           <Trash2 className="w-4 h-4" />
         </button>

@@ -100,9 +100,9 @@ export default function OnDemandDetail() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link
+        <Link aria-label="Back to on-demand"
           to="/on-demand"
-          className="p-2 hover:bg-dark-card rounded-lg transition-colors"
+          className="p-2 hover:bg-dark-card rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
         >
           <ArrowLeft className="w-5 h-5 text-gray-400" />
         </Link>
