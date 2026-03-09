@@ -265,16 +265,16 @@ function ScheduleRow({
             Last run: {formatDateTime(schedule.last_run)}
           </span>
         )}
-        <button
+        <button aria-label="Run schedule now"
           onClick={onRunNow}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
           title="Run now"
         >
           <Play className="w-4 h-4 text-green-400" />
         </button>
-        <button
+        <button aria-label="Toggle schedule"
           onClick={onToggle}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
           title={schedule.enabled ? 'Disable' : 'Enable'}
         >
           {schedule.enabled ? (
@@ -283,16 +283,16 @@ function ScheduleRow({
             <ToggleLeft className="w-5 h-5 text-gray-500" />
           )}
         </button>
-        <button
+        <button aria-label="Edit schedule"
           onClick={onEdit}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
           title="Edit"
         >
           <Edit2 className="w-4 h-4 text-gray-400" />
         </button>
-        <button
+        <button aria-label="Delete schedule"
           onClick={onDelete}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
           title="Delete"
         >
           <Trash2 className="w-4 h-4 text-red-400" />
