@@ -94,8 +94,9 @@ class TestNewsAggregatorService:
 
     def test_clean_html(self, aggregator):
         """Test HTML cleaning."""
+        from app.services.news_aggregator import clean_html
         html = "<p>Hello <b>World</b></p><script>evil()</script>"
-        clean = aggregator._clean_html(html)
+        clean = clean_html(html)
 
         assert "Hello" in clean
         assert "World" in clean
@@ -104,13 +105,15 @@ class TestNewsAggregatorService:
 
     def test_clean_html_empty(self, aggregator):
         """Test HTML cleaning with empty input."""
-        assert aggregator._clean_html("") == ""
-        assert aggregator._clean_html(None) == ""
+        from app.services.news_aggregator import clean_html
+        assert clean_html("") == ""
+        assert clean_html(None) == ""
 
     def test_parse_date_valid(self, aggregator):
         """Test date parsing with valid input."""
+        from app.services.news_aggregator import parse_date
         date_str = "Mon, 20 Jan 2026 10:00:00 GMT"
-        result = aggregator._parse_date(date_str)
+        result = parse_date(date_str)
 
         assert result is not None
         assert result.year == 2026
@@ -119,9 +122,10 @@ class TestNewsAggregatorService:
 
     def test_parse_date_invalid(self, aggregator):
         """Test date parsing with invalid input."""
-        assert aggregator._parse_date("not a date") is None
-        assert aggregator._parse_date("") is None
-        assert aggregator._parse_date(None) is None
+        from app.services.news_aggregator import parse_date
+        assert parse_date("not a date") is None
+        assert parse_date(None) is None
+        assert parse_date("") is None
 
     @pytest.mark.asyncio
     async def test_close(self, aggregator):

@@ -134,11 +134,6 @@ def get_language_choices() -> list:
     ]
 
 
-def build_prompt_instruction(config: Dict[str, Any]) -> str:
-    """Get prompt instruction from configuration.
-
-    Args:
-        config: Language configuration dictionary
 def build_prompt_instruction(language_config: Dict[str, Any]) -> str:
     """Extract prompt instruction from language config.
 
@@ -148,7 +143,6 @@ def build_prompt_instruction(language_config: Dict[str, Any]) -> str:
     Returns:
         Prompt instruction string
     """
-    return config.get("prompt_instruction", "")
     return language_config.get("prompt_instruction", "")
 
 
@@ -223,7 +217,7 @@ def build_intro_prompt(language_code: str, week_number: int, year: int) -> str:
     """
     config = get_language_config(language_code)
 
-    return f"""You are Maya, a professional AI news anchor for Malaysian small business owners.
+    return f'''You are Maya, a professional AI news anchor for Malaysian small business owners.
 
 {config['prompt_instruction']}
 
@@ -235,7 +229,7 @@ Guidelines:
 - Create anticipation for what's coming
 - Keep it conversational and friendly
 
-Output: ~30-40 words of spoken content."""
+Output: ~30-40 words of spoken content.'''
 
 
 def build_outro_prompt(language_code: str) -> str:
@@ -249,7 +243,7 @@ def build_outro_prompt(language_code: str) -> str:
     """
     config = get_language_config(language_code)
 
-    return f"""You are Maya, a professional AI news anchor for Malaysian small business owners.
+    return f'''You are Maya, a professional AI news anchor for Malaysian small business owners.
 
 {config['prompt_instruction']}
 
@@ -261,4 +255,4 @@ Guidelines:
 - Remind them to tune in next week
 - End on a positive, motivating note
 
-Output: ~30-40 words of spoken content."""
+Output: ~30-40 words of spoken content.'''
