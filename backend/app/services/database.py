@@ -1,11 +1,9 @@
 from supabase import create_client, Client
 from typing import Optional, List, Any
 from datetime import datetime, timedelta
-from uuid import UUID
-from typing import Optional, List
-from datetime import datetime
 from uuid import UUID, uuid4
 import json
+import asyncio
 
 from app.core.config import settings
 from app.models.schemas import (
@@ -883,9 +881,21 @@ class DatabaseService:
     # ==================
 
     async def get_content_stats(self) -> ContentStats:
-        # Get story counts
-        stories = self.client.table("stories").select("status, story_type", count="exact").execute()
+        # ⚡ Bolt: Execute blocking I/O calls to Supabase concurrently to speed up the dashboard
+        now = datetime.utcnow()
+        week_ago = (now - timedelta(days=7)).isoformat()
+        month_ago = (now - timedelta(days=30)).isoformat()
 
+        # Gather all independent synchronous database calls in parallel
+        stories, videos, publishes, this_week, this_month = await asyncio.gather(
+            asyncio.to_thread(self.client.table("stories").select("status, story_type", count="exact").execute),
+            asyncio.to_thread(self.client.table("video_assets").select("language", count="exact").execute),
+            asyncio.to_thread(self.client.table("publish_records").select("platform, status", count="exact").execute),
+            asyncio.to_thread(self.client.table("stories").select("id", count="exact").gte("created_at", week_ago).execute),
+            asyncio.to_thread(self.client.table("stories").select("id", count="exact").gte("created_at", month_ago).execute)
+        )
+
+        # Parse story counts
         stories_by_status = {}
         stories_by_type = {}
         for s in stories.data:
@@ -894,15 +904,13 @@ class DatabaseService:
             stories_by_status[status] = stories_by_status.get(status, 0) + 1
             stories_by_type[stype] = stories_by_type.get(stype, 0) + 1
 
-        # Get video counts
-        videos = self.client.table("video_assets").select("language", count="exact").execute()
+        # Parse video counts
         videos_by_language = {}
         for v in videos.data:
             lang = v["language"]
             videos_by_language[lang] = videos_by_language.get(lang, 0) + 1
 
-        # Get publish counts
-        publishes = self.client.table("publish_records").select("platform, status", count="exact").execute()
+        # Parse publish counts
         published_by_platform = {}
         total_published = 0
         for p in publishes.data:
@@ -910,14 +918,6 @@ class DatabaseService:
                 platform = p["platform"]
                 published_by_platform[platform] = published_by_platform.get(platform, 0) + 1
                 total_published += 1
-
-        # Get recent counts
-        now = datetime.utcnow()
-        week_ago = (now - timedelta(days=7)).isoformat()
-        month_ago = (now - timedelta(days=30)).isoformat()
-
-        this_week = self.client.table("stories").select("id", count="exact").gte("created_at", week_ago).execute()
-        this_month = self.client.table("stories").select("id", count="exact").gte("created_at", month_ago).execute()
 
         return ContentStats(
             total_stories=stories.count or 0,
