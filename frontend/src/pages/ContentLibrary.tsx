@@ -626,8 +626,11 @@ function CreateStoryModal({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Title</label>
+            <label htmlFor="title" className="block text-sm text-gray-400 mb-1">
+              Title <span className="text-red-500">*</span>
+            </label>
             <input
+              id="title"
               type="text"
               value={formData.title}
               onChange={(e) =>
@@ -640,10 +643,11 @@ function CreateStoryModal({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1">
+            <label htmlFor="description" className="block text-sm text-gray-400 mb-1">
               Description (optional)
             </label>
             <textarea
+              id="description"
               value={formData.description}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
@@ -655,10 +659,11 @@ function CreateStoryModal({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1">
+            <label htmlFor="source_url" className="block text-sm text-gray-400 mb-1">
               Source URL (optional)
             </label>
             <input
+              id="source_url"
               type="url"
               value={formData.source_url}
               onChange={(e) =>
@@ -670,10 +675,11 @@ function CreateStoryModal({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1">
+            <label htmlFor="tags" className="block text-sm text-gray-400 mb-1">
               Tags (comma-separated)
             </label>
             <input
+              id="tags"
               type="text"
               value={formData.tags}
               onChange={(e) =>
