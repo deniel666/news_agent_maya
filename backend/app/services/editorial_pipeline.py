@@ -1,5 +1,6 @@
 """Editorial Pipeline - Integrates news aggregation with editorial review system."""
 
+import asyncio
 import re
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -51,21 +52,36 @@ class EditorialPipelineService:
         # Aggregate from all sources
         articles = await self.aggregator.aggregate_all(days=days)
 
-        # Store each article as a raw story
+        # Fast path deduplication and bulk insertion
         stored_count = 0
         skipped_count = 0
         errors = []
 
+        # 1. Extract all URLs to check for duplicates in one go
+        urls_to_check = {a.url for a in articles if a.url}
+        existing_urls = set()
+
+        if urls_to_check:
+            try:
+                # Batched .in_() read using asyncio.to_thread to fetch existing URLs
+                def fetch_existing():
+                    return supabase.table("raw_stories").select("original_url").in_(
+                        "original_url", list(urls_to_check)
+                    ).execute()
+
+                existing_response = await asyncio.to_thread(fetch_existing)
+                if existing_response.data:
+                    existing_urls = {item["original_url"] for item in existing_response.data if item.get("original_url")}
+            except Exception as e:
+                errors.append(f"Error checking duplicates: {str(e)}")
+
+        # 2. Prepare stories for bulk insert
+        stories_to_insert = []
         for article in articles:
             try:
-                # Check for duplicates (by URL or title+source)
-                if article.url:
-                    existing = supabase.table("raw_stories").select("id").eq(
-                        "original_url", article.url
-                    ).execute()
-                    if existing.data:
-                        skipped_count += 1
-                        continue
+                if article.url and article.url in existing_urls:
+                    skipped_count += 1
+                    continue
 
                 # Convert to markdown format
                 content_markdown = self._to_markdown(article)
@@ -93,17 +109,40 @@ class EditorialPipelineService:
                     "status": "pending",
                 }
 
-                response = supabase.table("raw_stories").insert(raw_story_data).execute()
-                if response.data:
-                    stored_count += 1
-
-                    # Optionally auto-score
-                    if auto_score and response.data[0]:
-                        await self._score_story(response.data[0]["id"])
+                stories_to_insert.append(raw_story_data)
 
             except Exception as e:
                 errors.append(f"{article.source_name}: {str(e)}")
                 continue
+
+        # 3. Bulk insert new stories
+        if stories_to_insert:
+            try:
+                def insert_stories():
+                    return supabase.table("raw_stories").insert(stories_to_insert).execute()
+
+                response = await asyncio.to_thread(insert_stories)
+
+                if response.data:
+                    stored_count = len(response.data)
+
+                    # Optionally auto-score
+                    if auto_score:
+                        # Use asyncio.gather to score concurrently
+                        score_tasks = [
+                            self._score_story(story["id"])
+                            for story in response.data
+                            if story.get("id")
+                        ]
+                        if score_tasks:
+                            score_results = await asyncio.gather(*score_tasks, return_exceptions=True)
+                            for idx, res in enumerate(score_results):
+                                if isinstance(res, Exception):
+                                    story_id = response.data[idx].get("id")
+                                    errors.append(f"Error scoring story {story_id}: {str(res)}")
+
+            except Exception as e:
+                errors.append(f"Error during bulk insert: {str(e)}")
 
         return {
             "total_fetched": len(articles),
