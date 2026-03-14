@@ -1,0 +1,3 @@
+## 2024-05-18 - Prevent Blocking Event Loop with Supabase Queries
+**Learning:** Sequential `supabase-python` queries executed directly block the FastAPI event loop, causing severe endpoints latency. Replacing sequential calls with `asyncio.to_thread` wrapped inside `asyncio.gather` drastically reduces latency for aggregate dashboard methods (like `get_dashboard_stats` and `get_content_stats`) by running the network I/O in parallel and preventing thread starvation.
+**Action:** When performing multiple independent Supabase queries in a service method, always execute them concurrently using `asyncio.gather` combined with `asyncio.to_thread` instead of running them sequentially.
