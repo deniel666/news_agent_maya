@@ -139,17 +139,11 @@ def build_prompt_instruction(config: Dict[str, Any]) -> str:
 
     Args:
         config: Language configuration dictionary
-def build_prompt_instruction(language_config: Dict[str, Any]) -> str:
-    """Extract prompt instruction from language config.
-
-    Args:
-        language_config: Language configuration dictionary
 
     Returns:
         Prompt instruction string
     """
     return config.get("prompt_instruction", "")
-    return language_config.get("prompt_instruction", "")
 
 
 def build_synthesis_prompt(
@@ -231,8 +225,8 @@ Write a warm, engaging 15-20 second introduction for the Week {week_number}, {ye
 
 Guidelines:
 - Greet the audience warmly
-- Briefly mention it's the weekly business update
-- Create anticipation for what's coming
+- Briefly mention it is the weekly business update
+- Create anticipation for what is coming
 - Keep it conversational and friendly
 
 Output: ~30-40 words of spoken content."""
