@@ -51,21 +51,41 @@ class EditorialPipelineService:
         # Aggregate from all sources
         articles = await self.aggregator.aggregate_all(days=days)
 
+        import asyncio
+
         # Store each article as a raw story
         stored_count = 0
         skipped_count = 0
         errors = []
 
+        # Extract all URLs to batch check for duplicates
+        article_urls = [article.url for article in articles if article.url]
+        existing_urls = set()
+
+        if article_urls:
+            try:
+                # Chunk URLs if there are too many (Supabase URL length limit)
+                chunk_size = 100
+                for i in range(0, len(article_urls), chunk_size):
+                    chunk = article_urls[i:i + chunk_size]
+                    existing = await asyncio.to_thread(
+                        supabase.table("raw_stories").select("original_url").in_(
+                            "original_url", chunk
+                        ).execute
+                    )
+                    if existing.data:
+                        existing_urls.update(item["original_url"] for item in existing.data)
+            except Exception as e:
+                errors.append(f"Error checking duplicates: {str(e)}")
+
+        new_stories_data = []
+
+        # Deduplicate and prepare data
         for article in articles:
             try:
-                # Check for duplicates (by URL or title+source)
-                if article.url:
-                    existing = supabase.table("raw_stories").select("id").eq(
-                        "original_url", article.url
-                    ).execute()
-                    if existing.data:
-                        skipped_count += 1
-                        continue
+                if article.url and article.url in existing_urls:
+                    skipped_count += 1
+                    continue
 
                 # Convert to markdown format
                 content_markdown = self._to_markdown(article)
@@ -79,7 +99,7 @@ class EditorialPipelineService:
                 # Extract media URLs if any
                 media_urls = self._extract_media_urls(article.content or "")
 
-                # Create raw story
+                # Create raw story data
                 raw_story_data = {
                     "title": article.title or self._generate_title(article.content),
                     "content_markdown": content_markdown,
@@ -92,18 +112,41 @@ class EditorialPipelineService:
                     "published_at": article.published_at.isoformat() if article.published_at else None,
                     "status": "pending",
                 }
+                new_stories_data.append(raw_story_data)
 
-                response = supabase.table("raw_stories").insert(raw_story_data).execute()
-                if response.data:
-                    stored_count += 1
-
-                    # Optionally auto-score
-                    if auto_score and response.data[0]:
-                        await self._score_story(response.data[0]["id"])
+                # Add to existing urls to prevent duplicates in the same batch
+                if article.url:
+                    existing_urls.add(article.url)
 
             except Exception as e:
                 errors.append(f"{article.source_name}: {str(e)}")
                 continue
+
+        # Batch insert new stories
+        inserted_stories = []
+        if new_stories_data:
+            try:
+                # Supabase insert accepts a list of dicts for bulk insert
+                response = await asyncio.to_thread(
+                    supabase.table("raw_stories").insert(new_stories_data).execute
+                )
+                if response.data:
+                    inserted_stories = response.data
+                    stored_count = len(inserted_stories)
+            except Exception as e:
+                errors.append(f"Error bulk inserting stories: {str(e)}")
+
+        # Optionally auto-score
+        if auto_score and inserted_stories:
+            score_tasks = [
+                self._score_story(story["id"])
+                for story in inserted_stories
+            ]
+            if score_tasks:
+                results = await asyncio.gather(*score_tasks, return_exceptions=True)
+                for res in results:
+                    if isinstance(res, Exception):
+                        errors.append(f"Error scoring story: {str(res)}")
 
         return {
             "total_fetched": len(articles),
