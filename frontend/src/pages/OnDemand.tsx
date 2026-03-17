@@ -372,12 +372,13 @@ function JobRow({ job }: { job: any }) {
               View Details
             </Link>
             <button
+              aria-label="Delete job"
               onClick={() => {
                 if (confirm('Delete this job?')) {
                   deleteMutation.mutate(job.id)
                 }
               }}
-              className="btn btn-secondary text-sm text-red-400 hover:text-red-300"
+              className="btn btn-secondary text-sm text-red-400 hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
             >
               <Trash2 className="w-4 h-4" />
             </button>
