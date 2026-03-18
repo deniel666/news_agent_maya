@@ -1,6 +1,7 @@
 """Editorial Pipeline - Integrates news aggregation with editorial review system."""
 
 import re
+import asyncio
 from datetime import datetime, timedelta
 from typing import List, Optional
 from uuid import UUID
@@ -56,16 +57,35 @@ class EditorialPipelineService:
         skipped_count = 0
         errors = []
 
+        # Optimization: Batch check existing URLs instead of sequential queries
+        # 1. Extract all URLs
+        urls = [article.url for article in articles if article.url]
+        existing_urls = set()
+
+        if urls:
+            try:
+                # 2. Batched query to find existing in one go, offloaded to thread to avoid blocking
+                query = supabase.table("raw_stories").select("original_url").in_("original_url", urls)
+                existing_response = await asyncio.to_thread(query.execute)
+
+                if existing_response.data:
+                    existing_urls = {item.get("original_url") for item in existing_response.data if item.get("original_url")}
+            except Exception as e:
+                errors.append(f"Batch URL check error: {str(e)}")
+
+        raw_stories_to_insert = []
+        articles_to_insert = []
+
         for article in articles:
             try:
-                # Check for duplicates (by URL or title+source)
+                # Check if it was in the existing URLs set
                 if article.url:
-                    existing = supabase.table("raw_stories").select("id").eq(
-                        "original_url", article.url
-                    ).execute()
-                    if existing.data:
+                    if article.url in existing_urls:
                         skipped_count += 1
                         continue
+                    else:
+                        # Add to set so we don't insert within-batch duplicates
+                        existing_urls.add(article.url)
 
                 # Convert to markdown format
                 content_markdown = self._to_markdown(article)
@@ -93,17 +113,36 @@ class EditorialPipelineService:
                     "status": "pending",
                 }
 
-                response = supabase.table("raw_stories").insert(raw_story_data).execute()
-                if response.data:
-                    stored_count += 1
-
-                    # Optionally auto-score
-                    if auto_score and response.data[0]:
-                        await self._score_story(response.data[0]["id"])
-
+                raw_stories_to_insert.append(raw_story_data)
+                articles_to_insert.append(article)
             except Exception as e:
                 errors.append(f"{article.source_name}: {str(e)}")
                 continue
+
+        if raw_stories_to_insert:
+            try:
+                # 3. Bulk insert to reduce round trips, offloaded to thread
+                insert_query = supabase.table("raw_stories").insert(raw_stories_to_insert)
+                response = await asyncio.to_thread(insert_query.execute)
+
+                if response.data:
+                    stored_count += len(response.data)
+
+                    # Optionally auto-score concurrently
+                    if auto_score:
+                        score_tasks = [
+                            self._score_story(inserted_story["id"])
+                            for inserted_story in response.data
+                            if "id" in inserted_story
+                        ]
+                        if score_tasks:
+                            # Run concurrently with return_exceptions=True so one failure doesn't break the batch
+                            results = await asyncio.gather(*score_tasks, return_exceptions=True)
+                            for i, res in enumerate(results):
+                                if isinstance(res, Exception):
+                                    errors.append(f"Auto-score error for {response.data[i].get('id')}: {str(res)}")
+            except Exception as e:
+                errors.append(f"Bulk insert error: {str(e)}")
 
         return {
             "total_fetched": len(articles),
