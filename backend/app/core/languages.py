@@ -231,7 +231,7 @@ Write a warm, engaging 15-20 second introduction for the Week {week_number}, {ye
 
 Guidelines:
 - Greet the audience warmly
-- Briefly mention it's the weekly business update
+- Briefly mention it\'s the weekly business update
 - Create anticipation for what's coming
 - Keep it conversational and friendly
 
