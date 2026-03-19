@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from datetime import datetime, timedelta
 
-from app.services.news_aggregator import NewsAggregatorService
+from app.services.news_aggregator import NewsAggregatorService, clean_html_text, parse_date_string
 
 
 class MockResponse:
@@ -95,7 +95,7 @@ class TestNewsAggregatorService:
     def test_clean_html(self, aggregator):
         """Test HTML cleaning."""
         html = "<p>Hello <b>World</b></p><script>evil()</script>"
-        clean = aggregator._clean_html(html)
+        clean = clean_html_text(html)
 
         assert "Hello" in clean
         assert "World" in clean
@@ -104,13 +104,13 @@ class TestNewsAggregatorService:
 
     def test_clean_html_empty(self, aggregator):
         """Test HTML cleaning with empty input."""
-        assert aggregator._clean_html("") == ""
-        assert aggregator._clean_html(None) == ""
+        assert clean_html_text("") == ""
+        assert clean_html_text(None) == ""
 
     def test_parse_date_valid(self, aggregator):
         """Test date parsing with valid input."""
         date_str = "Mon, 20 Jan 2026 10:00:00 GMT"
-        result = aggregator._parse_date(date_str)
+        result = parse_date_string(date_str)
 
         assert result is not None
         assert result.year == 2026
@@ -119,9 +119,9 @@ class TestNewsAggregatorService:
 
     def test_parse_date_invalid(self, aggregator):
         """Test date parsing with invalid input."""
-        assert aggregator._parse_date("not a date") is None
-        assert aggregator._parse_date("") is None
-        assert aggregator._parse_date(None) is None
+        assert parse_date_string("not a date") is None
+        assert parse_date_string("") is None
+        assert parse_date_string(None) is None
 
     @pytest.mark.asyncio
     async def test_close(self, aggregator):
