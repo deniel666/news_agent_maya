@@ -58,7 +58,8 @@ export default function ScriptEditor({
             <>
               <button
                 onClick={handleReset}
-                className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+                aria-label="Reset changes"
+                className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
                 title="Reset changes"
               >
                 <RotateCcw className="w-4 h-4 text-gray-400" />
@@ -74,7 +75,8 @@ export default function ScriptEditor({
           )}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+            aria-label={isExpanded ? 'Minimize editor' : 'Expand editor'}
+            className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
             title={isExpanded ? 'Minimize' : 'Expand'}
           >
             {isExpanded ? (
