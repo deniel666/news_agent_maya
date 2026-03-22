@@ -142,12 +142,13 @@ export default function ContentLibrary() {
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" aria-hidden="true" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search stories..."
+              aria-label="Search stories"
               className="input w-full pl-10"
             />
           </div>
@@ -159,11 +160,12 @@ export default function ContentLibrary() {
                 <button
                   key={status}
                   onClick={() => setStatusFilter(status)}
+                  aria-pressed={statusFilter === status}
                   className={cn(
-                    'px-3 py-2 rounded-lg text-sm capitalize',
+                    'px-3 py-2 rounded-lg text-sm capitalize transition-colors',
                     statusFilter === status
                       ? 'bg-maya-600 text-white'
-                      : 'bg-dark-bg text-gray-400 hover:text-white'
+                      : 'bg-dark-bg text-gray-400 hover:text-white hover:bg-dark-border'
                   )}
                 >
                   {status.replace('_', ' ')}
@@ -173,21 +175,27 @@ export default function ContentLibrary() {
           </div>
 
           {/* View Mode */}
-          <div className="flex gap-1 bg-dark-bg rounded-lg p-1">
+          <div className="flex gap-1 bg-dark-bg rounded-lg p-1" role="group" aria-label="View mode">
             <button
               onClick={() => setViewMode('grid')}
+              aria-label="Grid view"
+              title="Grid view"
+              aria-pressed={viewMode === 'grid'}
               className={cn(
-                'p-2 rounded',
-                viewMode === 'grid' ? 'bg-dark-card text-white' : 'text-gray-500'
+                'p-2 rounded transition-colors',
+                viewMode === 'grid' ? 'bg-dark-card text-white' : 'text-gray-500 hover:text-gray-300 hover:bg-dark-card/50'
               )}
             >
               <Grid className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode('list')}
+              aria-label="List view"
+              title="List view"
+              aria-pressed={viewMode === 'list'}
               className={cn(
-                'p-2 rounded',
-                viewMode === 'list' ? 'bg-dark-card text-white' : 'text-gray-500'
+                'p-2 rounded transition-colors',
+                viewMode === 'list' ? 'bg-dark-card text-white' : 'text-gray-500 hover:text-gray-300 hover:bg-dark-card/50'
               )}
             >
               <List className="w-4 h-4" />
@@ -205,11 +213,12 @@ export default function ContentLibrary() {
                 onClick={() =>
                   setSelectedTag(selectedTag === tag ? null : tag)
                 }
+                aria-pressed={selectedTag === tag}
                 className={cn(
-                  'px-3 py-1 rounded-full text-sm',
+                  'px-3 py-1 rounded-full text-sm transition-colors',
                   selectedTag === tag
                     ? 'bg-maya-600 text-white'
-                    : 'bg-dark-bg text-gray-400 hover:text-white'
+                    : 'bg-dark-bg text-gray-400 hover:text-white hover:bg-dark-border'
                 )}
               >
                 #{tag}
@@ -364,15 +373,19 @@ function StoryCard({
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="p-1 hover:bg-dark-bg rounded"
+              aria-label="Story actions"
+              aria-expanded={showMenu}
+              aria-haspopup="menu"
+              className="p-1 hover:bg-dark-bg rounded transition-colors"
             >
               <MoreVertical className="w-4 h-4 text-gray-500" />
             </button>
 
             {showMenu && (
-              <div className="absolute right-0 top-full mt-1 bg-dark-card border border-dark-border rounded-lg shadow-xl z-10 min-w-[150px]">
+              <div className="absolute right-0 top-full mt-1 bg-dark-card border border-dark-border rounded-lg shadow-xl z-10 min-w-[150px]" role="menu">
                 <Link
                   to={`/content/${story.id}`}
+                  role="menuitem"
                   className="flex items-center gap-2 px-4 py-2 hover:bg-dark-bg text-gray-300 text-sm"
                 >
                   <Eye className="w-4 h-4" />
@@ -383,7 +396,8 @@ function StoryCard({
                     onToggleFeatured()
                     setShowMenu(false)
                   }}
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-dark-bg text-gray-300 text-sm w-full"
+                  role="menuitem"
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-dark-bg text-gray-300 text-sm w-full transition-colors"
                 >
                   <Star className="w-4 h-4" />
                   {story.featured ? 'Unfeature' : 'Feature'}
@@ -393,7 +407,8 @@ function StoryCard({
                     onArchive()
                     setShowMenu(false)
                   }}
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-dark-bg text-gray-300 text-sm w-full"
+                  role="menuitem"
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-dark-bg text-gray-300 text-sm w-full transition-colors"
                 >
                   <Archive className="w-4 h-4" />
                   Archive
@@ -403,7 +418,8 @@ function StoryCard({
                     onDelete()
                     setShowMenu(false)
                   }}
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-dark-bg text-red-400 text-sm w-full"
+                  role="menuitem"
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-dark-bg text-red-400 text-sm w-full transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete
