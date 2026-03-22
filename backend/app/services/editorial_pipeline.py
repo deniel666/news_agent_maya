@@ -1,5 +1,6 @@
 """Editorial Pipeline - Integrates news aggregation with editorial review system."""
 
+import asyncio
 import re
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -56,16 +57,37 @@ class EditorialPipelineService:
         skipped_count = 0
         errors = []
 
+        # ⚡ Bolt: Extract URLs and batch check for duplicates to avoid N+1 query problem
+        article_urls = list({a.url for a in articles if a.url})
+        existing_urls = set()
+
+        if article_urls:
+            try:
+                # Use batched .in_() read wrapped in asyncio.to_thread to prevent blocking
+                # Chunking URLs to avoid potential length limits in Supabase
+                chunk_size = 100
+                for i in range(0, len(article_urls), chunk_size):
+                    chunk = article_urls[i:i + chunk_size]
+                    res = await asyncio.to_thread(
+                        supabase.table("raw_stories").select("original_url").in_("original_url", chunk).execute
+                    )
+                    if res.data:
+                        existing_urls.update([r["original_url"] for r in res.data])
+            except Exception as e:
+                errors.append(f"Batch duplicate check error: {str(e)}")
+
+        raw_stories_to_insert = []
+
         for article in articles:
             try:
-                # Check for duplicates (by URL or title+source)
+                # Check for duplicates using O(1) set lookup
+                if article.url and article.url in existing_urls:
+                    skipped_count += 1
+                    continue
+
+                # Prevent intra-batch duplicates
                 if article.url:
-                    existing = supabase.table("raw_stories").select("id").eq(
-                        "original_url", article.url
-                    ).execute()
-                    if existing.data:
-                        skipped_count += 1
-                        continue
+                    existing_urls.add(article.url)
 
                 # Convert to markdown format
                 content_markdown = self._to_markdown(article)
@@ -92,18 +114,36 @@ class EditorialPipelineService:
                     "published_at": article.published_at.isoformat() if article.published_at else None,
                     "status": "pending",
                 }
-
-                response = supabase.table("raw_stories").insert(raw_story_data).execute()
-                if response.data:
-                    stored_count += 1
-
-                    # Optionally auto-score
-                    if auto_score and response.data[0]:
-                        await self._score_story(response.data[0]["id"])
+                raw_stories_to_insert.append(raw_story_data)
 
             except Exception as e:
                 errors.append(f"{article.source_name}: {str(e)}")
                 continue
+
+        # ⚡ Bolt: Bulk insert to reduce sequential network calls
+        if raw_stories_to_insert:
+            chunk_size = 50
+            inserted_records = []
+            for i in range(0, len(raw_stories_to_insert), chunk_size):
+                chunk = raw_stories_to_insert[i:i + chunk_size]
+                try:
+                    response = await asyncio.to_thread(
+                        supabase.table("raw_stories").insert(chunk).execute
+                    )
+                    if response.data:
+                        inserted_records.extend(response.data)
+                except Exception as e:
+                    errors.append(f"Bulk insert chunk error: {str(e)}")
+
+            stored_count += len(inserted_records)
+
+            # Optionally auto-score
+            if auto_score and inserted_records:
+                auto_score_tasks = [self._score_story(r["id"]) for r in inserted_records]
+                results = await asyncio.gather(*auto_score_tasks, return_exceptions=True)
+                for i, result in enumerate(results):
+                    if isinstance(result, Exception):
+                        errors.append(f"Auto-score error for story {inserted_records[i]['id']}: {str(result)}")
 
         return {
             "total_fetched": len(articles),
