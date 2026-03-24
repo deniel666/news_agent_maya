@@ -149,6 +149,7 @@ export default function ContentLibrary() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search stories..."
               className="input w-full pl-10"
+              aria-label="Search stories"
             />
           </div>
 
@@ -180,6 +181,8 @@ export default function ContentLibrary() {
                 'p-2 rounded',
                 viewMode === 'grid' ? 'bg-dark-card text-white' : 'text-gray-500'
               )}
+              aria-label="Grid view"
+              title="Grid view"
             >
               <Grid className="w-4 h-4" />
             </button>
@@ -189,6 +192,8 @@ export default function ContentLibrary() {
                 'p-2 rounded',
                 viewMode === 'list' ? 'bg-dark-card text-white' : 'text-gray-500'
               )}
+              aria-label="List view"
+              title="List view"
             >
               <List className="w-4 h-4" />
             </button>
@@ -364,7 +369,10 @@ function StoryCard({
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="p-1 hover:bg-dark-bg rounded"
+              className="p-1 hover:bg-dark-bg rounded focus-visible:ring-2 focus:outline-none focus-visible:ring-maya-500"
+              aria-label="More options"
+              title="More options"
+              aria-expanded={showMenu}
             >
               <MoreVertical className="w-4 h-4 text-gray-500" />
             </button>
@@ -626,8 +634,9 @@ function CreateStoryModal({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Title</label>
+            <label htmlFor="story-title" className="block text-sm text-gray-400 mb-1">Title</label>
             <input
+              id="story-title"
               type="text"
               value={formData.title}
               onChange={(e) =>
@@ -640,10 +649,11 @@ function CreateStoryModal({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1">
+            <label htmlFor="story-description" className="block text-sm text-gray-400 mb-1">
               Description (optional)
             </label>
             <textarea
+              id="story-description"
               value={formData.description}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
@@ -655,10 +665,11 @@ function CreateStoryModal({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1">
+            <label htmlFor="story-source-url" className="block text-sm text-gray-400 mb-1">
               Source URL (optional)
             </label>
             <input
+              id="story-source-url"
               type="url"
               value={formData.source_url}
               onChange={(e) =>
@@ -670,10 +681,11 @@ function CreateStoryModal({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1">
+            <label htmlFor="story-tags" className="block text-sm text-gray-400 mb-1">
               Tags (comma-separated)
             </label>
             <input
+              id="story-tags"
               type="text"
               value={formData.tags}
               onChange={(e) =>
@@ -692,6 +704,7 @@ function CreateStoryModal({
               type="submit"
               disabled={isSubmitting}
               className="btn btn-primary"
+              aria-busy={isSubmitting}
             >
               {isSubmitting ? 'Creating...' : 'Create Story'}
             </button>
