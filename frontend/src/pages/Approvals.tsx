@@ -204,9 +204,11 @@ function ScriptApprovalCard({
         <input
           type="text"
           placeholder="Optional feedback..."
+          aria-label="Optional feedback"
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
-          className="input flex-1"
+          disabled={isLoading}
+          className="input flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <button
           onClick={() => onApprove(false, feedback || 'Rejected')}
