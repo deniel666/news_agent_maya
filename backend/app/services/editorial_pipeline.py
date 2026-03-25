@@ -1,5 +1,6 @@
 """Editorial Pipeline - Integrates news aggregation with editorial review system."""
 
+import asyncio
 import re
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -56,16 +57,40 @@ class EditorialPipelineService:
         skipped_count = 0
         errors = []
 
+        # Optimization: Pre-fetch existing URLs to prevent N+1 query problem
+        valid_urls = [a.url for a in articles if a.url]
+        existing_urls_set = set()
+
+        if valid_urls:
+            # Batch query all existing URLs in one go
+            # Use chunks of 100 to avoid request URI too long errors on some setups
+            chunk_size = 100
+            for i in range(0, len(valid_urls), chunk_size):
+                chunk = valid_urls[i:i + chunk_size]
+                try:
+                    existing_response = await asyncio.to_thread(
+                        supabase.table("raw_stories")
+                        .select("original_url")
+                        .in_("original_url", chunk)
+                        .execute
+                    )
+                    if existing_response.data:
+                        existing_urls_set.update(item["original_url"] for item in existing_response.data if "original_url" in item)
+                except Exception as e:
+                    errors.append(f"Error fetching existing URLs chunk: {str(e)}")
+
+        new_stories_data = []
+        new_stories_to_score = []
+
         for article in articles:
             try:
-                # Check for duplicates (by URL or title+source)
+                # Check for duplicates using the pre-fetched set (O(1) lookup)
                 if article.url:
-                    existing = supabase.table("raw_stories").select("id").eq(
-                        "original_url", article.url
-                    ).execute()
-                    if existing.data:
+                    if article.url in existing_urls_set:
                         skipped_count += 1
                         continue
+                    # Add to set immediately to catch intra-batch duplicates
+                    existing_urls_set.add(article.url)
 
                 # Convert to markdown format
                 content_markdown = self._to_markdown(article)
@@ -93,17 +118,38 @@ class EditorialPipelineService:
                     "status": "pending",
                 }
 
-                response = supabase.table("raw_stories").insert(raw_story_data).execute()
-                if response.data:
-                    stored_count += 1
-
-                    # Optionally auto-score
-                    if auto_score and response.data[0]:
-                        await self._score_story(response.data[0]["id"])
+                new_stories_data.append(raw_story_data)
 
             except Exception as e:
                 errors.append(f"{article.source_name}: {str(e)}")
                 continue
+
+        # Optimization: Bulk insert new stories
+        if new_stories_data:
+            # Insert in chunks of 50 to respect typical REST payload limits
+            chunk_size = 50
+            for i in range(0, len(new_stories_data), chunk_size):
+                chunk = new_stories_data[i:i + chunk_size]
+                try:
+                    # Ignore duplicate key issues with upsert since uniqueness is checked
+                    response = await asyncio.to_thread(
+                        supabase.table("raw_stories").upsert(chunk, on_conflict="original_url").execute
+                    )
+                    if response.data:
+                        stored_count += len(response.data)
+                        if auto_score:
+                            new_stories_to_score.extend([story["id"] for story in response.data if "id" in story])
+                except Exception as e:
+                    errors.append(f"Error during bulk insert chunk: {str(e)}")
+
+        # Optimization: Concurrent scoring instead of sequential
+        if auto_score and new_stories_to_score:
+            score_tasks = [self._score_story(story_id) for story_id in new_stories_to_score]
+            # Use gather to run concurrently, return_exceptions prevents one failure from failing all
+            score_results = await asyncio.gather(*score_tasks, return_exceptions=True)
+            for res in score_results:
+                if isinstance(res, Exception):
+                    errors.append(f"Error scoring story: {str(res)}")
 
         return {
             "total_fetched": len(articles),
