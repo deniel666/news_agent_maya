@@ -502,14 +502,14 @@ function StoryRow({
         <Link
           to={`/content/${story.id}`}
           className="p-2 hover:bg-dark-bg rounded-lg"
-          title="View"
+          title="View" aria-label="View"
         >
           <Eye className="w-4 h-4 text-gray-400" />
         </Link>
         <button
           onClick={onToggleFeatured}
           className="p-2 hover:bg-dark-bg rounded-lg"
-          title={story.featured ? 'Unfeature' : 'Feature'}
+          title={story.featured ? 'Unfeature' : 'Feature'} aria-label={story.featured ? 'Unfeature' : 'Feature'}
         >
           <Star
             className={cn(
@@ -523,14 +523,14 @@ function StoryRow({
         <button
           onClick={onArchive}
           className="p-2 hover:bg-dark-bg rounded-lg"
-          title="Archive"
+          title="Archive" aria-label="Archive"
         >
           <Archive className="w-4 h-4 text-gray-400" />
         </button>
         <button
           onClick={onDelete}
           className="p-2 hover:bg-dark-bg rounded-lg"
-          title="Delete"
+          title="Delete" aria-label="Delete"
         >
           <Trash2 className="w-4 h-4 text-red-400" />
         </button>

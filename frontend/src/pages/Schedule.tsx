@@ -268,14 +268,14 @@ function ScheduleRow({
         <button
           onClick={onRunNow}
           className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-          title="Run now"
+          title="Run now" aria-label="Run now"
         >
           <Play className="w-4 h-4 text-green-400" />
         </button>
         <button
           onClick={onToggle}
           className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-          title={schedule.enabled ? 'Disable' : 'Enable'}
+          title={schedule.enabled ? 'Disable' : 'Enable'} aria-label={schedule.enabled ? 'Disable' : 'Enable'}
         >
           {schedule.enabled ? (
             <ToggleRight className="w-5 h-5 text-green-400" />
@@ -286,14 +286,14 @@ function ScheduleRow({
         <button
           onClick={onEdit}
           className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-          title="Edit"
+          title="Edit" aria-label="Edit"
         >
           <Edit2 className="w-4 h-4 text-gray-400" />
         </button>
         <button
           onClick={onDelete}
           className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-          title="Delete"
+          title="Delete" aria-label="Delete"
         >
           <Trash2 className="w-4 h-4 text-red-400" />
         </button>
