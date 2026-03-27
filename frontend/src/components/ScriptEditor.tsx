@@ -59,7 +59,7 @@ export default function ScriptEditor({
               <button
                 onClick={handleReset}
                 className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-                title="Reset changes"
+                title="Reset changes" aria-label="Reset changes"
               >
                 <RotateCcw className="w-4 h-4 text-gray-400" />
               </button>
@@ -75,7 +75,7 @@ export default function ScriptEditor({
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-            title={isExpanded ? 'Minimize' : 'Expand'}
+            title={isExpanded ? 'Minimize' : 'Expand'} aria-label={isExpanded ? 'Minimize' : 'Expand'}
           >
             {isExpanded ? (
               <Minimize2 className="w-4 h-4 text-gray-400" />

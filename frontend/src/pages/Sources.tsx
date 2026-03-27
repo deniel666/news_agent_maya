@@ -293,7 +293,7 @@ function SourceRow({
           onClick={handleTest}
           disabled={testing}
           className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-          title="Test source"
+          title="Test source" aria-label="Test source"
         >
           <RefreshCw
             className={cn('w-4 h-4 text-gray-400', testing && 'animate-spin')}
@@ -302,7 +302,7 @@ function SourceRow({
         <button
           onClick={onToggle}
           className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-          title={source.enabled ? 'Disable' : 'Enable'}
+          title={source.enabled ? 'Disable' : 'Enable'} aria-label={source.enabled ? 'Disable' : 'Enable'}
         >
           {source.enabled ? (
             <ToggleRight className="w-5 h-5 text-green-400" />
@@ -313,14 +313,14 @@ function SourceRow({
         <button
           onClick={onEdit}
           className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-          title="Edit"
+          title="Edit" aria-label="Edit"
         >
           <Edit2 className="w-4 h-4 text-gray-400" />
         </button>
         <button
           onClick={onDelete}
           className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-          title="Delete"
+          title="Delete" aria-label="Delete"
         >
           <Trash2 className="w-4 h-4 text-red-400" />
         </button>
