@@ -175,6 +175,8 @@ export default function ContentLibrary() {
           {/* View Mode */}
           <div className="flex gap-1 bg-dark-bg rounded-lg p-1">
             <button
+              aria-label="Grid view"
+              title="Grid view"
               onClick={() => setViewMode('grid')}
               className={cn(
                 'p-2 rounded',
@@ -184,6 +186,8 @@ export default function ContentLibrary() {
               <Grid className="w-4 h-4" />
             </button>
             <button
+              aria-label="List view"
+              title="List view"
               onClick={() => setViewMode('list')}
               className={cn(
                 'p-2 rounded',
@@ -363,6 +367,8 @@ function StoryCard({
           {/* Menu */}
           <div className="relative">
             <button
+              aria-label="More options"
+              title="More options"
               onClick={() => setShowMenu(!showMenu)}
               className="p-1 hover:bg-dark-bg rounded"
             >
