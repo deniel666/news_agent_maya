@@ -1,3 +1,4 @@
 ## 2026-02-09 - Sequential I/O in Aggregators
 **Learning:** The `NewsAggregatorService` was fetching RSS and Nitter feeds sequentially, which is a major bottleneck as these are I/O bound operations. This pattern often goes unnoticed in initial implementations but scales poorly.
 **Action:** Always use `asyncio.gather` for independent I/O bound tasks in aggregators.
+## 2026-03-29 - Sequential Database Queries in API Endpoints\n**Learning:** The `DatabaseService` used sequential synchronous `supabase-python` client calls (via `.execute()`) within asynchronous endpoints like `get_dashboard_stats` and `get_content_stats`. This blocks the async event loop and causes severe performance degradation, especially as data grows. \n**Action:** Always wrap independent synchronous database calls in `asyncio.to_thread()` and execute them concurrently using `asyncio.gather()` to optimize backend performance.
