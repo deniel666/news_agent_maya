@@ -508,8 +508,9 @@ function StoryRow({
         </Link>
         <button
           onClick={onToggleFeatured}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
           title={story.featured ? 'Unfeature' : 'Feature'}
+          aria-label={story.featured ? 'Unfeature story' : 'Feature story'}
         >
           <Star
             className={cn(
@@ -522,15 +523,17 @@ function StoryRow({
         </button>
         <button
           onClick={onArchive}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
           title="Archive"
+          aria-label="Archive story"
         >
           <Archive className="w-4 h-4 text-gray-400" />
         </button>
         <button
           onClick={onDelete}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
           title="Delete"
+          aria-label="Delete story"
         >
           <Trash2 className="w-4 h-4 text-red-400" />
         </button>
