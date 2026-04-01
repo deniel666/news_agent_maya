@@ -639,17 +639,17 @@ class DatabaseService:
                 "total_posts": len(self._posts),
             }
 
-        briefings = self.client.table("weekly_briefings").select(
-            "id, status", count="exact"
-        ).execute()
+        import asyncio
 
-        videos = self.client.table("weekly_videos").select(
-            "id", count="exact"
-        ).execute()
+        briefings_req = self.client.table("weekly_briefings").select("id, status", count="exact")
+        videos_req = self.client.table("weekly_videos").select("id", count="exact")
+        posts_req = self.client.table("social_posts").select("id", count="exact")
 
-        posts = self.client.table("social_posts").select(
-            "id", count="exact"
-        ).execute()
+        briefings, videos, posts = await asyncio.gather(
+            asyncio.to_thread(briefings_req.execute),
+            asyncio.to_thread(videos_req.execute),
+            asyncio.to_thread(posts_req.execute)
+        )
 
         total_briefings = briefings.count or 0
         completed = len([
@@ -883,8 +883,26 @@ class DatabaseService:
     # ==================
 
     async def get_content_stats(self) -> ContentStats:
-        # Get story counts
-        stories = self.client.table("stories").select("status, story_type", count="exact").execute()
+        import asyncio
+        now = datetime.utcnow()
+        week_ago = (now - timedelta(days=7)).isoformat()
+        month_ago = (now - timedelta(days=30)).isoformat()
+
+        # Build query objects
+        stories_req = self.client.table("stories").select("status, story_type", count="exact")
+        videos_req = self.client.table("video_assets").select("language", count="exact")
+        publishes_req = self.client.table("publish_records").select("platform, status", count="exact")
+        this_week_req = self.client.table("stories").select("id", count="exact").gte("created_at", week_ago)
+        this_month_req = self.client.table("stories").select("id", count="exact").gte("created_at", month_ago)
+
+        # Execute queries concurrently
+        stories, videos, publishes, this_week, this_month = await asyncio.gather(
+            asyncio.to_thread(stories_req.execute),
+            asyncio.to_thread(videos_req.execute),
+            asyncio.to_thread(publishes_req.execute),
+            asyncio.to_thread(this_week_req.execute),
+            asyncio.to_thread(this_month_req.execute)
+        )
 
         stories_by_status = {}
         stories_by_type = {}
@@ -894,15 +912,11 @@ class DatabaseService:
             stories_by_status[status] = stories_by_status.get(status, 0) + 1
             stories_by_type[stype] = stories_by_type.get(stype, 0) + 1
 
-        # Get video counts
-        videos = self.client.table("video_assets").select("language", count="exact").execute()
         videos_by_language = {}
         for v in videos.data:
             lang = v["language"]
             videos_by_language[lang] = videos_by_language.get(lang, 0) + 1
 
-        # Get publish counts
-        publishes = self.client.table("publish_records").select("platform, status", count="exact").execute()
         published_by_platform = {}
         total_published = 0
         for p in publishes.data:
@@ -910,14 +924,6 @@ class DatabaseService:
                 platform = p["platform"]
                 published_by_platform[platform] = published_by_platform.get(platform, 0) + 1
                 total_published += 1
-
-        # Get recent counts
-        now = datetime.utcnow()
-        week_ago = (now - timedelta(days=7)).isoformat()
-        month_ago = (now - timedelta(days=30)).isoformat()
-
-        this_week = self.client.table("stories").select("id", count="exact").gte("created_at", week_ago).execute()
-        this_month = self.client.table("stories").select("id", count="exact").gte("created_at", month_ago).execute()
 
         return ContentStats(
             total_stories=stories.count or 0,
