@@ -142,25 +142,28 @@ export default function ContentLibrary() {
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <label htmlFor="search-stories" className="sr-only">Search stories</label>
+            <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
             <input
+              id="search-stories"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search stories..."
-              className="input w-full pl-10"
+              className="input w-full pl-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
             />
           </div>
 
           {/* Status Filter */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap" role="group" aria-label="Filter by status">
             {(['all', 'draft', 'script_ready', 'video_ready', 'published', 'archived'] as const).map(
               (status) => (
                 <button
                   key={status}
                   onClick={() => setStatusFilter(status)}
+                  aria-pressed={statusFilter === status}
                   className={cn(
-                    'px-3 py-2 rounded-lg text-sm capitalize',
+                    'px-3 py-2 rounded-lg text-sm capitalize focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500',
                     statusFilter === status
                       ? 'bg-maya-600 text-white'
                       : 'bg-dark-bg text-gray-400 hover:text-white'
@@ -173,24 +176,28 @@ export default function ContentLibrary() {
           </div>
 
           {/* View Mode */}
-          <div className="flex gap-1 bg-dark-bg rounded-lg p-1">
+          <div className="flex gap-1 bg-dark-bg rounded-lg p-1" role="group" aria-label="View mode">
             <button
               onClick={() => setViewMode('grid')}
+              aria-label="Grid view"
+              aria-pressed={viewMode === 'grid'}
               className={cn(
-                'p-2 rounded',
-                viewMode === 'grid' ? 'bg-dark-card text-white' : 'text-gray-500'
+                'p-2 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500',
+                viewMode === 'grid' ? 'bg-dark-card text-white' : 'text-gray-500 hover:text-white'
               )}
             >
-              <Grid className="w-4 h-4" />
+              <Grid aria-hidden="true" className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode('list')}
+              aria-label="List view"
+              aria-pressed={viewMode === 'list'}
               className={cn(
-                'p-2 rounded',
-                viewMode === 'list' ? 'bg-dark-card text-white' : 'text-gray-500'
+                'p-2 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500',
+                viewMode === 'list' ? 'bg-dark-card text-white' : 'text-gray-500 hover:text-white'
               )}
             >
-              <List className="w-4 h-4" />
+              <List aria-hidden="true" className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -364,9 +371,11 @@ function StoryCard({
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="p-1 hover:bg-dark-bg rounded"
+              aria-label={`Actions for ${story.title}`}
+              aria-expanded={showMenu}
+              className="p-1 hover:bg-dark-bg rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
             >
-              <MoreVertical className="w-4 h-4 text-gray-500" />
+              <MoreVertical aria-hidden="true" className="w-4 h-4 text-gray-500 hover:text-white" />
             </button>
 
             {showMenu && (
@@ -501,38 +510,43 @@ function StoryRow({
       <div className="flex items-center gap-1">
         <Link
           to={`/content/${story.id}`}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
+          aria-label={`View ${story.title}`}
           title="View"
         >
-          <Eye className="w-4 h-4 text-gray-400" />
+          <Eye aria-hidden="true" className="w-4 h-4 text-gray-400 hover:text-white" />
         </Link>
         <button
           onClick={onToggleFeatured}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
+          aria-label={story.featured ? `Unfeature ${story.title}` : `Feature ${story.title}`}
           title={story.featured ? 'Unfeature' : 'Feature'}
         >
           <Star
+            aria-hidden="true"
             className={cn(
               'w-4 h-4',
               story.featured
                 ? 'text-yellow-400 fill-yellow-400'
-                : 'text-gray-400'
+                : 'text-gray-400 hover:text-white'
             )}
           />
         </button>
         <button
           onClick={onArchive}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
+          aria-label={`Archive ${story.title}`}
           title="Archive"
         >
-          <Archive className="w-4 h-4 text-gray-400" />
+          <Archive aria-hidden="true" className="w-4 h-4 text-gray-400 hover:text-white" />
         </button>
         <button
           onClick={onDelete}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+          aria-label={`Delete ${story.title}`}
           title="Delete"
         >
-          <Trash2 className="w-4 h-4 text-red-400" />
+          <Trash2 aria-hidden="true" className="w-4 h-4 text-red-400 hover:text-red-300" />
         </button>
       </div>
     </div>
