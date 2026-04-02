@@ -631,7 +631,7 @@ function ArrayField({
           >
             {value}
             {editing && (
-              <button onClick={() => removeItem(index)} className="hover:text-white">
+              <button aria-label="Remove item" onClick={() => removeItem(index)} className="hover:text-white">
                 <X className="w-3 h-3" />
               </button>
             )}
@@ -648,6 +648,7 @@ function ArrayField({
               placeholder={placeholder}
             />
             <button
+              aria-label="Add item"
               onClick={addItem}
               className="p-1 text-maya-400 hover:text-white"
             >
@@ -801,6 +802,7 @@ function GuidelinesTab() {
                       {guideline.enabled ? 'Enabled' : 'Disabled'}
                     </button>
                     <button
+                      aria-label="Delete guideline"
                       onClick={() => handleDelete(guideline.id)}
                       className="p-2 text-gray-400 hover:text-red-400 transition-colors"
                     >
