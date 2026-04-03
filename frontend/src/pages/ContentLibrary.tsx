@@ -364,7 +364,10 @@ function StoryCard({
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="p-1 hover:bg-dark-bg rounded"
+              className="p-1 hover:bg-dark-bg rounded focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+              aria-label="Story options"
+              title="Story options"
+              aria-expanded={showMenu}
             >
               <MoreVertical className="w-4 h-4 text-gray-500" />
             </button>
