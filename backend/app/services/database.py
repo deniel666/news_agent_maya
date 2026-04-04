@@ -639,17 +639,21 @@ class DatabaseService:
                 "total_posts": len(self._posts),
             }
 
-        briefings = self.client.table("weekly_briefings").select(
-            "id, status", count="exact"
-        ).execute()
+        import asyncio
 
-        videos = self.client.table("weekly_videos").select(
-            "id", count="exact"
-        ).execute()
+        briefings_query = self.client.table("weekly_briefings").select("id, status", count="exact")
+        videos_query = self.client.table("weekly_videos").select("id", count="exact")
+        posts_query = self.client.table("social_posts").select("id", count="exact")
 
-        posts = self.client.table("social_posts").select(
-            "id", count="exact"
-        ).execute()
+        # ⚡ Bolt Optimization: Batch concurrent database queries
+        # Replaces 3 sequential I/O blocking network calls with concurrent execution.
+        # Expected Performance Impact: Reduces total response time for this method by ~66%
+        # (bounded by the slowest single query rather than the sum of all queries).
+        briefings, videos, posts = await asyncio.gather(
+            asyncio.to_thread(briefings_query.execute),
+            asyncio.to_thread(videos_query.execute),
+            asyncio.to_thread(posts_query.execute)
+        )
 
         total_briefings = briefings.count or 0
         completed = len([
@@ -883,9 +887,31 @@ class DatabaseService:
     # ==================
 
     async def get_content_stats(self) -> ContentStats:
-        # Get story counts
-        stories = self.client.table("stories").select("status, story_type", count="exact").execute()
+        import asyncio
+        now = datetime.utcnow()
+        week_ago = (now - timedelta(days=7)).isoformat()
+        month_ago = (now - timedelta(days=30)).isoformat()
 
+        # Prepare queries
+        stories_query = self.client.table("stories").select("status, story_type", count="exact")
+        videos_query = self.client.table("video_assets").select("language", count="exact")
+        publishes_query = self.client.table("publish_records").select("platform, status", count="exact")
+        this_week_query = self.client.table("stories").select("id", count="exact").gte("created_at", week_ago)
+        this_month_query = self.client.table("stories").select("id", count="exact").gte("created_at", month_ago)
+
+        # ⚡ Bolt Optimization: Batch concurrent database queries
+        # Replaces 5 sequential I/O blocking network calls with concurrent execution.
+        # Expected Performance Impact: Reduces total response time for this method by ~80%
+        # (bounded by the slowest single query rather than the sum of all 5 queries).
+        stories, videos, publishes, this_week, this_month = await asyncio.gather(
+            asyncio.to_thread(stories_query.execute),
+            asyncio.to_thread(videos_query.execute),
+            asyncio.to_thread(publishes_query.execute),
+            asyncio.to_thread(this_week_query.execute),
+            asyncio.to_thread(this_month_query.execute)
+        )
+
+        # Process stories
         stories_by_status = {}
         stories_by_type = {}
         for s in stories.data:
@@ -894,15 +920,13 @@ class DatabaseService:
             stories_by_status[status] = stories_by_status.get(status, 0) + 1
             stories_by_type[stype] = stories_by_type.get(stype, 0) + 1
 
-        # Get video counts
-        videos = self.client.table("video_assets").select("language", count="exact").execute()
+        # Process videos
         videos_by_language = {}
         for v in videos.data:
             lang = v["language"]
             videos_by_language[lang] = videos_by_language.get(lang, 0) + 1
 
-        # Get publish counts
-        publishes = self.client.table("publish_records").select("platform, status", count="exact").execute()
+        # Process publish counts
         published_by_platform = {}
         total_published = 0
         for p in publishes.data:
@@ -910,14 +934,6 @@ class DatabaseService:
                 platform = p["platform"]
                 published_by_platform[platform] = published_by_platform.get(platform, 0) + 1
                 total_published += 1
-
-        # Get recent counts
-        now = datetime.utcnow()
-        week_ago = (now - timedelta(days=7)).isoformat()
-        month_ago = (now - timedelta(days=30)).isoformat()
-
-        this_week = self.client.table("stories").select("id", count="exact").gte("created_at", week_ago).execute()
-        this_month = self.client.table("stories").select("id", count="exact").gte("created_at", month_ago).execute()
 
         return ContentStats(
             total_stories=stories.count or 0,
