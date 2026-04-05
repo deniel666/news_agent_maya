@@ -1,5 +1,6 @@
 """Editorial Pipeline - Integrates news aggregation with editorial review system."""
 
+import asyncio
 import re
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -56,16 +57,28 @@ class EditorialPipelineService:
         skipped_count = 0
         errors = []
 
+        # ⚡ Bolt Optimization: Replace N+1 queries with a single batched read and bulk insert.
+        # Pre-fetch existing URLs to check duplicates in O(1) time
+        article_urls = [a.url for a in articles if a.url]
+        existing_urls = set()
+        if article_urls:
+            existing_response = await asyncio.to_thread(
+                supabase.table("raw_stories").select("original_url").in_("original_url", article_urls).execute
+            )
+            if existing_response.data:
+                existing_urls = {item["original_url"] for item in existing_response.data}
+
+        raw_stories_to_insert = []
+
         for article in articles:
             try:
-                # Check for duplicates (by URL or title+source)
+                # Check for duplicates (by URL)
                 if article.url:
-                    existing = supabase.table("raw_stories").select("id").eq(
-                        "original_url", article.url
-                    ).execute()
-                    if existing.data:
+                    if article.url in existing_urls:
                         skipped_count += 1
                         continue
+                    # ⚡ Bolt Optimization: Add to existing_urls immediately to catch intra-batch duplicates
+                    existing_urls.add(article.url)
 
                 # Convert to markdown format
                 content_markdown = self._to_markdown(article)
@@ -93,17 +106,29 @@ class EditorialPipelineService:
                     "status": "pending",
                 }
 
-                response = supabase.table("raw_stories").insert(raw_story_data).execute()
-                if response.data:
-                    stored_count += 1
-
-                    # Optionally auto-score
-                    if auto_score and response.data[0]:
-                        await self._score_story(response.data[0]["id"])
+                # ⚡ Bolt Optimization: Collect for bulk insert
+                raw_stories_to_insert.append(raw_story_data)
 
             except Exception as e:
                 errors.append(f"{article.source_name}: {str(e)}")
                 continue
+
+        # ⚡ Bolt Optimization: Execute a single bulk insert wrapped in asyncio.to_thread
+        insert_response = None
+        if raw_stories_to_insert:
+            try:
+                insert_response = await asyncio.to_thread(
+                    supabase.table("raw_stories").insert(raw_stories_to_insert).execute
+                )
+                if insert_response.data:
+                    stored_count += len(insert_response.data)
+            except Exception as e:
+                errors.append(f"Bulk insert error: {str(e)}")
+
+        # ⚡ Bolt Optimization: Auto-score inserted records asynchronously
+        if auto_score and insert_response and insert_response.data:
+            for record in insert_response.data:
+                await self._score_story(record["id"])
 
         return {
             "total_fetched": len(articles),
