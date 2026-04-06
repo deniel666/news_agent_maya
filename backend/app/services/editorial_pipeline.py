@@ -1,5 +1,6 @@
 """Editorial Pipeline - Integrates news aggregation with editorial review system."""
 
+import asyncio
 import re
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -51,21 +52,40 @@ class EditorialPipelineService:
         # Aggregate from all sources
         articles = await self.aggregator.aggregate_all(days=days)
 
+        # ⚡ Bolt Optimization: Batch I/O operations to prevent N+1 query bottleneck
+        # Fetch existing URLs in a single batch
+        existing_urls = set()
+        article_urls = [a.url for a in articles if a.url]
+        if article_urls:
+            # Chunk URLs to avoid URL length limits if there are many
+            chunk_size = 50
+            chunks = [article_urls[i:i + chunk_size] for i in range(0, len(article_urls), chunk_size)]
+
+            async def fetch_existing(chunk):
+                return await asyncio.to_thread(
+                    lambda: supabase.table("raw_stories").select("original_url").in_("original_url", chunk).execute()
+                )
+
+            results = await asyncio.gather(*[fetch_existing(c) for c in chunks], return_exceptions=True)
+            for res in results:
+                if not isinstance(res, Exception) and res and hasattr(res, "data") and res.data:
+                    existing_urls.update(row["original_url"] for row in res.data)
+
         # Store each article as a raw story
         stored_count = 0
         skipped_count = 0
         errors = []
+        new_stories_data = []
 
         for article in articles:
             try:
-                # Check for duplicates (by URL or title+source)
+                # Check for duplicates using the in-memory set
                 if article.url:
-                    existing = supabase.table("raw_stories").select("id").eq(
-                        "original_url", article.url
-                    ).execute()
-                    if existing.data:
+                    if article.url in existing_urls:
                         skipped_count += 1
                         continue
+                    # Update tracking set to catch intra-batch duplicates
+                    existing_urls.add(article.url)
 
                 # Convert to markdown format
                 content_markdown = self._to_markdown(article)
@@ -93,17 +113,36 @@ class EditorialPipelineService:
                     "status": "pending",
                 }
 
-                response = supabase.table("raw_stories").insert(raw_story_data).execute()
-                if response.data:
-                    stored_count += 1
-
-                    # Optionally auto-score
-                    if auto_score and response.data[0]:
-                        await self._score_story(response.data[0]["id"])
+                new_stories_data.append(raw_story_data)
 
             except Exception as e:
                 errors.append(f"{article.source_name}: {str(e)}")
                 continue
+
+        # ⚡ Bolt Optimization: Single bulk insert instead of sequential inserts
+        scoring_tasks = []
+        if new_stories_data:
+            # Batch inserts to avoid too large payloads
+            batch_size = 50
+            for i in range(0, len(new_stories_data), batch_size):
+                batch = new_stories_data[i:i+batch_size]
+                try:
+                    response = await asyncio.to_thread(
+                        lambda: supabase.table("raw_stories").insert(batch).execute()
+                    )
+                    if response and hasattr(response, "data") and response.data:
+                        stored_count += len(response.data)
+
+                        # Prepare auto-score tasks
+                        if auto_score:
+                            for row in response.data:
+                                scoring_tasks.append(self._score_story(row["id"]))
+                except Exception as e:
+                    errors.append(f"Batch insert error: {str(e)}")
+
+        # ⚡ Bolt Optimization: Concurrent execution of independent auto-score operations
+        if scoring_tasks:
+            await asyncio.gather(*scoring_tasks, return_exceptions=True)
 
         return {
             "total_fetched": len(articles),
