@@ -13,6 +13,7 @@ import {
   Play,
   CheckCircle,
   AlertCircle,
+  Loader2,
 } from 'lucide-react'
 import { formatDateTime, getStatusColor, getStatusLabel } from '../lib/utils'
 import { Link } from 'react-router-dom'
@@ -62,9 +63,10 @@ export default function Dashboard() {
         <button
           onClick={handleCreateBriefing}
           disabled={isCreating}
+          aria-busy={isCreating}
           className="btn btn-primary flex items-center gap-2"
         >
-          <Play className="w-4 h-4" />
+          {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
           {isCreating ? 'Starting...' : 'Start New Briefing'}
         </button>
       </div>
