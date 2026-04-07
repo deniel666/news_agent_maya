@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { listBriefings, createBriefing } from '../lib/api'
 import { Link } from 'react-router-dom'
-import { FileText, Plus, ChevronRight } from 'lucide-react'
+import { FileText, Plus, ChevronRight, Loader2 } from 'lucide-react'
 import { formatDateTime, getStatusColor, getStatusLabel } from '../lib/utils'
 import { useState } from 'react'
 
@@ -40,7 +40,11 @@ export default function Briefings() {
           disabled={isCreating}
           className="btn btn-primary flex items-center gap-2"
         >
-          <Plus className="w-4 h-4" />
+          {isCreating ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Plus className="w-4 h-4" />
+          )}
           {isCreating ? 'Creating...' : 'New Briefing'}
         </button>
       </div>
