@@ -883,8 +883,23 @@ class DatabaseService:
     # ==================
 
     async def get_content_stats(self) -> ContentStats:
-        # Get story counts
-        stories = self.client.table("stories").select("status, story_type", count="exact").execute()
+        import asyncio
+        # Get recent counts dates
+        now = datetime.now(datetime.UTC) if hasattr(datetime, 'UTC') else datetime.utcnow()
+        week_ago = (now - timedelta(days=7)).isoformat()
+        month_ago = (now - timedelta(days=30)).isoformat()
+
+        # ⚡ Bolt Optimization: Execute independent aggregate queries concurrently
+        # Previously these 5 queries ran sequentially, taking ~5x latency
+        stories_task = asyncio.to_thread(self.client.table("stories").select("status, story_type", count="exact").execute)
+        videos_task = asyncio.to_thread(self.client.table("video_assets").select("language", count="exact").execute)
+        publishes_task = asyncio.to_thread(self.client.table("publish_records").select("platform, status", count="exact").execute)
+        this_week_task = asyncio.to_thread(self.client.table("stories").select("id", count="exact").gte("created_at", week_ago).execute)
+        this_month_task = asyncio.to_thread(self.client.table("stories").select("id", count="exact").gte("created_at", month_ago).execute)
+
+        stories, videos, publishes, this_week, this_month = await asyncio.gather(
+            stories_task, videos_task, publishes_task, this_week_task, this_month_task
+        )
 
         stories_by_status = {}
         stories_by_type = {}
@@ -895,14 +910,12 @@ class DatabaseService:
             stories_by_type[stype] = stories_by_type.get(stype, 0) + 1
 
         # Get video counts
-        videos = self.client.table("video_assets").select("language", count="exact").execute()
         videos_by_language = {}
         for v in videos.data:
             lang = v["language"]
             videos_by_language[lang] = videos_by_language.get(lang, 0) + 1
 
         # Get publish counts
-        publishes = self.client.table("publish_records").select("platform, status", count="exact").execute()
         published_by_platform = {}
         total_published = 0
         for p in publishes.data:
@@ -910,14 +923,6 @@ class DatabaseService:
                 platform = p["platform"]
                 published_by_platform[platform] = published_by_platform.get(platform, 0) + 1
                 total_published += 1
-
-        # Get recent counts
-        now = datetime.utcnow()
-        week_ago = (now - timedelta(days=7)).isoformat()
-        month_ago = (now - timedelta(days=30)).isoformat()
-
-        this_week = self.client.table("stories").select("id", count="exact").gte("created_at", week_ago).execute()
-        this_month = self.client.table("stories").select("id", count="exact").gte("created_at", month_ago).execute()
 
         return ContentStats(
             total_stories=stories.count or 0,
