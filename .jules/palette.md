@@ -1,0 +1,3 @@
+## 2024-04-11 - ARIA Labels for Icon-Only Buttons
+**Learning:** Icon-only buttons (like More/Menu, Feature/Star, Archive, Delete) in UI tables/lists often lack `aria-label` attributes, making them inaccessible to screen readers. In interactive rows, focus states for these buttons can be unstyled, making keyboard navigation difficult.
+**Action:** Always verify that icon-only buttons have descriptive `aria-label` attributes. Include explicit focus styles like `focus-visible:ring-2 focus-visible:ring-maya-500` to ensure keyboard accessibility. Provide `aria-expanded` and `aria-haspopup` for menu toggles. Add `aria-pressed` for toggle buttons (e.g., feature/star).
