@@ -410,13 +410,18 @@ class MCPRegistry:
             except Exception as e:
                 logger.warning(f"Composio startup failed: {e}")
 
+        # ⚡ Bolt Optimization: Start and shutdown MCP servers concurrently to reduce I/O bottlenecks
         # Start legacy MCP servers
-        for config in self.list_enabled_servers():
-            try:
-                await self.get_client(config.id)
-                logger.info(f"Started MCP server: {config.id}")
-            except Exception as e:
-                logger.error(f"Failed to start MCP server {config.id}: {e}")
+        enabled_servers = self.list_enabled_servers()
+        if enabled_servers:
+            async def start_server(config):
+                try:
+                    await self.get_client(config.id)
+                    logger.info(f"Started MCP server: {config.id}")
+                except Exception as e:
+                    logger.error(f"Failed to start MCP server {config.id}: {e}")
+
+            await asyncio.gather(*(start_server(config) for config in enabled_servers))
 
     async def shutdown(self) -> None:
         """Gracefully shutdown all MCP connections."""
@@ -431,12 +436,17 @@ class MCPRegistry:
             self._composio_client = None
             self._composio_enabled = False
 
+        # ⚡ Bolt Optimization: Start and shutdown MCP servers concurrently to reduce I/O bottlenecks
         # Shutdown legacy clients
-        for server_id in list(self._clients.keys()):
-            try:
-                await self._disconnect_client(server_id)
-            except Exception as e:
-                logger.warning(f"Error disconnecting MCP client {server_id}: {e}")
+        client_ids = list(self._clients.keys())
+        if client_ids:
+            async def disconnect_client(server_id):
+                try:
+                    await self._disconnect_client(server_id)
+                except Exception as e:
+                    logger.warning(f"Error disconnecting MCP client {server_id}: {e}")
+
+            await asyncio.gather(*(disconnect_client(server_id) for server_id in client_ids))
         self._clients.clear()
 
 
