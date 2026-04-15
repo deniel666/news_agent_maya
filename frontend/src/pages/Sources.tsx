@@ -292,7 +292,8 @@ function SourceRow({
         <button
           onClick={handleTest}
           disabled={testing}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          aria-label="Test source"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           title="Test source"
         >
           <RefreshCw
@@ -301,7 +302,8 @@ function SourceRow({
         </button>
         <button
           onClick={onToggle}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          aria-label={source.enabled ? 'Disable source' : 'Enable source'}
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           title={source.enabled ? 'Disable' : 'Enable'}
         >
           {source.enabled ? (
@@ -312,14 +314,16 @@ function SourceRow({
         </button>
         <button
           onClick={onEdit}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          aria-label="Edit source"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           title="Edit"
         >
           <Edit2 className="w-4 h-4 text-gray-400" />
         </button>
         <button
           onClick={onDelete}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          aria-label="Delete source"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           title="Delete"
         >
           <Trash2 className="w-4 h-4 text-red-400" />
