@@ -1,5 +1,6 @@
 """Editorial Pipeline - Integrates news aggregation with editorial review system."""
 
+import asyncio
 import re
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -51,35 +52,50 @@ class EditorialPipelineService:
         # Aggregate from all sources
         articles = await self.aggregator.aggregate_all(days=days)
 
-        # Store each article as a raw story
+        # ⚡ Bolt Optimization: Batch URL checking and insert operations to avoid N+1 queries
         stored_count = 0
         skipped_count = 0
         errors = []
 
+        # 1. Extract all URLs to check
+        urls_to_check = [a.url for a in articles if a.url]
+        existing_urls = set()
+
+        if urls_to_check:
+            try:
+                # Split into chunks if there are many URLs (Supabase URL limits)
+                chunk_size = 100
+                for i in range(0, len(urls_to_check), chunk_size):
+                    chunk = urls_to_check[i:i + chunk_size]
+                    # Use asyncio.to_thread to not block the event loop
+                    response = await asyncio.to_thread(
+                        lambda: supabase.table("raw_stories").select("original_url").in_("original_url", chunk).execute()
+                    )
+                    if response.data:
+                        existing_urls.update(item["original_url"] for item in response.data)
+            except Exception as e:
+                errors.append(f"Error checking duplicates: {str(e)}")
+
+        # 2. Prepare bulk insert payload
+        bulk_insert_data = []
+        scoring_tasks = []
+
         for article in articles:
             try:
-                # Check for duplicates (by URL or title+source)
+                if article.url and article.url in existing_urls:
+                    skipped_count += 1
+                    continue
+
+                # Add to existing_urls to catch intra-batch duplicates
                 if article.url:
-                    existing = supabase.table("raw_stories").select("id").eq(
-                        "original_url", article.url
-                    ).execute()
-                    if existing.data:
-                        skipped_count += 1
-                        continue
+                    existing_urls.add(article.url)
 
-                # Convert to markdown format
                 content_markdown = self._to_markdown(article)
-
-                # Determine category
                 category = category_map.get(article.source_name)
                 if not category:
-                    # Try to infer from content
                     category = self._infer_category(article.content or article.title or "")
-
-                # Extract media URLs if any
                 media_urls = self._extract_media_urls(article.content or "")
 
-                # Create raw story
                 raw_story_data = {
                     "title": article.title or self._generate_title(article.content),
                     "content_markdown": content_markdown,
@@ -92,18 +108,38 @@ class EditorialPipelineService:
                     "published_at": article.published_at.isoformat() if article.published_at else None,
                     "status": "pending",
                 }
-
-                response = supabase.table("raw_stories").insert(raw_story_data).execute()
-                if response.data:
-                    stored_count += 1
-
-                    # Optionally auto-score
-                    if auto_score and response.data[0]:
-                        await self._score_story(response.data[0]["id"])
+                bulk_insert_data.append(raw_story_data)
 
             except Exception as e:
                 errors.append(f"{article.source_name}: {str(e)}")
                 continue
+
+        # 3. Perform bulk insert
+        if bulk_insert_data:
+            # Chunk the inserts to prevent one bad article from failing the entire batch
+            # and to stay within potential Supabase payload limits
+            chunk_size = 50
+            for i in range(0, len(bulk_insert_data), chunk_size):
+                chunk = bulk_insert_data[i:i + chunk_size]
+                try:
+                    response = await asyncio.to_thread(
+                        lambda: supabase.table("raw_stories").insert(chunk).execute()
+                    )
+                    if response.data:
+                        stored_count += len(response.data)
+
+                        if auto_score:
+                            for item in response.data:
+                                scoring_tasks.append(self._score_story(item["id"]))
+                except Exception as e:
+                    errors.append(f"Bulk insert error (chunk {i//chunk_size}): {str(e)}")
+
+        # 4. Process scoring concurrently
+        if scoring_tasks:
+            results = await asyncio.gather(*scoring_tasks, return_exceptions=True)
+            for result in results:
+                if isinstance(result, Exception):
+                    errors.append(f"Scoring error: {str(result)}")
 
         return {
             "total_fetched": len(articles),
