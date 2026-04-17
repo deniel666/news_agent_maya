@@ -1,0 +1,3 @@
+## 2024-04-17 - Keyboard Navigable Custom Interactive Elements
+**Learning:** Icon-only buttons or custom interactive elements often lack a recognizable focus state or semantic label, making keyboard and screen reader accessibility poor. In `ScriptEditor.tsx`, combining `aria-label` with `focus-visible:ring-2` styling ensures accessibility. Additionally, adding offset rules to prominent buttons (like 'Save' with `btn-primary`) ensures contrast between the ring and the button itself.
+**Action:** Always add explicit `focus-visible` utility classes (e.g., `focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none`) and descriptive `aria-label`s to custom icon buttons. Use `focus-visible:ring-offset-2` when the button background is filled.
