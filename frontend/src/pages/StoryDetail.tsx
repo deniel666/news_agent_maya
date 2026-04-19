@@ -97,7 +97,8 @@ export default function StoryDetail() {
             <h1 className="text-2xl font-bold text-white">{story.title}</h1>
             <button
               onClick={() => featureMutation.mutate()}
-              className="p-1 hover:bg-dark-card rounded"
+              className="p-1 hover:bg-dark-card rounded focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+              aria-label={story.featured ? 'Unfeature story' : 'Feature story'}
             >
               <Star
                 className={cn(
