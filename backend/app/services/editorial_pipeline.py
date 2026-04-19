@@ -56,16 +56,26 @@ class EditorialPipelineService:
         skipped_count = 0
         errors = []
 
+        # ⚡ Bolt Optimization: Pre-fetch existing URLs in chunks to prevent N+1 queries
+        urls_to_check = [a.url for a in articles if a.url]
+        existing_urls = set()
+
+        # Process in chunks of 50 to avoid potential URI too long errors
+        for i in range(0, len(urls_to_check), 50):
+            chunk = urls_to_check[i:i + 50]
+            try:
+                existing = supabase.table("raw_stories").select("original_url").in_("original_url", chunk).execute()
+                if existing.data:
+                    existing_urls.update(row.get("original_url") for row in existing.data if row.get("original_url"))
+            except Exception as e:
+                errors.append(f"Error checking duplicates chunk: {str(e)}")
+
         for article in articles:
             try:
-                # Check for duplicates (by URL or title+source)
-                if article.url:
-                    existing = supabase.table("raw_stories").select("id").eq(
-                        "original_url", article.url
-                    ).execute()
-                    if existing.data:
-                        skipped_count += 1
-                        continue
+                # Check for duplicates using pre-fetched set (O(1) lookup)
+                if article.url and article.url in existing_urls:
+                    skipped_count += 1
+                    continue
 
                 # Convert to markdown format
                 content_markdown = self._to_markdown(article)
