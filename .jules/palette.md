@@ -1,0 +1,3 @@
+## 2024-04-20 - Adding Accessible Labels and Focus States to Icon-Only Elements
+**Learning:** Icon-only interactive elements lacking accessible text and focus outlines represent a widespread pattern that hampers screen reader utility and keyboard navigation. Using `aria-label` provides necessary context while tailwind classes `focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none rounded-lg/full` provides essential visual feedback for keyboard users.
+**Action:** When creating or maintaining icon-only buttons or links, consistently verify that `aria-label` is present and explicit `focus-visible` styling is utilized instead of generic focus states to avoid disrupting standard mouse-click behavior.
