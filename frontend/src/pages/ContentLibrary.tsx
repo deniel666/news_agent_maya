@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useDebounce } from '../hooks/useDebounce'
 import {
   Plus,
   Search,
@@ -41,13 +42,16 @@ export default function ContentLibrary() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
 
+  // ⚡ Bolt Optimization: Debounce search input to prevent rapid API calls while typing
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
+
   const { data: stories, isLoading } = useQuery({
-    queryKey: ['stories', statusFilter, selectedTag, searchQuery],
+    queryKey: ['stories', statusFilter, selectedTag, debouncedSearchQuery],
     queryFn: () =>
       listStories({
         status: statusFilter !== 'all' ? statusFilter : undefined,
         tag: selectedTag || undefined,
-        search: searchQuery || undefined,
+        search: debouncedSearchQuery || undefined,
       }),
   })
 
