@@ -20,6 +20,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { cn, formatDateTime } from '../lib/utils'
+import { useDebounce } from '../hooks/useDebounce'
 import {
   listStories,
   createStory,
@@ -40,14 +41,16 @@ export default function ContentLibrary() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  // ⚡ Bolt Optimization: Debounce search input to prevent excessive API calls while typing
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
 
   const { data: stories, isLoading } = useQuery({
-    queryKey: ['stories', statusFilter, selectedTag, searchQuery],
+    queryKey: ['stories', statusFilter, selectedTag, debouncedSearchQuery],
     queryFn: () =>
       listStories({
         status: statusFilter !== 'all' ? statusFilter : undefined,
         tag: selectedTag || undefined,
-        search: searchQuery || undefined,
+        search: debouncedSearchQuery || undefined,
       }),
   })
 
