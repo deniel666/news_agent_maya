@@ -1,3 +1,3 @@
-## 2026-02-09 - Sequential I/O in Aggregators
-**Learning:** The `NewsAggregatorService` was fetching RSS and Nitter feeds sequentially, which is a major bottleneck as these are I/O bound operations. This pattern often goes unnoticed in initial implementations but scales poorly.
-**Action:** Always use `asyncio.gather` for independent I/O bound tasks in aggregators.
+## 2024-05-24 - [Frontend Debounce Pattern]
+ **Learning:** Debouncing state variables that are passed as dependencies to Tanstack `useQuery` is a highly effective pattern to prevent excessive API requests when handling user inputs (like search bars).
+ **Action:** Always create and use a `useDebounce` hook for text input states that trigger network requests or complex computations in the frontend.
