@@ -176,8 +176,10 @@ export default function ContentLibrary() {
           <div className="flex gap-1 bg-dark-bg rounded-lg p-1">
             <button
               onClick={() => setViewMode('grid')}
+              aria-label="Grid view"
+              title="Grid view"
               className={cn(
-                'p-2 rounded',
+                'p-2 rounded transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none hover:text-white',
                 viewMode === 'grid' ? 'bg-dark-card text-white' : 'text-gray-500'
               )}
             >
@@ -185,8 +187,10 @@ export default function ContentLibrary() {
             </button>
             <button
               onClick={() => setViewMode('list')}
+              aria-label="List view"
+              title="List view"
               className={cn(
-                'p-2 rounded',
+                'p-2 rounded transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none hover:text-white',
                 viewMode === 'list' ? 'bg-dark-card text-white' : 'text-gray-500'
               )}
             >
