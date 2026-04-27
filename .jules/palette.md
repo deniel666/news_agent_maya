@@ -1,0 +1,3 @@
+## 2024-04-27 - [Toggle Button Groups Accessibility]
+**Learning:** Icon-only toggle buttons used for switching views (e.g., Grid vs List) must be wrapped in a semantic group with `role="group"` and `aria-label` to provide context. The individual buttons require both an explicit `aria-label` identifying their function and `aria-pressed` to indicate their current state semantically, ensuring screen readers can interpret them correctly alongside visual feedback classes like `focus-visible:ring-2`.
+**Action:** Always implement semantic grouping (`role="group"`) and explicitly track toggle state (`aria-pressed`) when converting adjacent icon buttons into accessible toggle groups, ensuring parity with visual active states.
