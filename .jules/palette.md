@@ -1,0 +1,3 @@
+## 2024-05-07 - [View Mode Buttons Accessibility]
+**Learning:** Icon-only toggle buttons (like grid/list view toggles) without proper ARIA semantics and focus states create significant barriers for screen reader users and keyboard navigators. Wrapping them in a semantic `role="group"` with an `aria-label` and managing active states using `aria-pressed` significantly improves the experience.
+**Action:** When implementing icon-only interactive toggle button groups, always wrap them in an accessible group, add explicit `aria-label`s to the individual buttons, use `aria-hidden="true"` on the SVGs, and supply proper focus rings (`focus-visible:ring-2`).
