@@ -51,21 +51,39 @@ class EditorialPipelineService:
         # Aggregate from all sources
         articles = await self.aggregator.aggregate_all(days=days)
 
+        # ⚡ Bolt Optimization: Batched duplicate checks and DB inserts to eliminate N+1 DB queries
         # Store each article as a raw story
         stored_count = 0
         skipped_count = 0
         errors = []
 
+        # 1. Batch Duplicate Checks
+        existing_urls = set()
+        urls_to_check = [a.url for a in articles if a.url]
+
+        # Process in chunks to avoid URL length limits
+        chunk_size = 50
+        for i in range(0, len(urls_to_check), chunk_size):
+            chunk = urls_to_check[i:i + chunk_size]
+            try:
+                existing = supabase.table("raw_stories").select("original_url").in_(
+                    "original_url", chunk
+                ).execute()
+                if existing.data:
+                    existing_urls.update(item["original_url"] for item in existing.data)
+            except Exception as e:
+                print(f"Error checking duplicates: {e}")
+
+        # 2. Prepare Batch Inserts
+        batch_inserts = []
         for article in articles:
             try:
-                # Check for duplicates (by URL or title+source)
+                if article.url and article.url in existing_urls:
+                    skipped_count += 1
+                    continue
+
                 if article.url:
-                    existing = supabase.table("raw_stories").select("id").eq(
-                        "original_url", article.url
-                    ).execute()
-                    if existing.data:
-                        skipped_count += 1
-                        continue
+                    existing_urls.add(article.url)
 
                 # Convert to markdown format
                 content_markdown = self._to_markdown(article)
@@ -73,13 +91,10 @@ class EditorialPipelineService:
                 # Determine category
                 category = category_map.get(article.source_name)
                 if not category:
-                    # Try to infer from content
                     category = self._infer_category(article.content or article.title or "")
 
-                # Extract media URLs if any
                 media_urls = self._extract_media_urls(article.content or "")
 
-                # Create raw story
                 raw_story_data = {
                     "title": article.title or self._generate_title(article.content),
                     "content_markdown": content_markdown,
@@ -92,18 +107,32 @@ class EditorialPipelineService:
                     "published_at": article.published_at.isoformat() if article.published_at else None,
                     "status": "pending",
                 }
-
-                response = supabase.table("raw_stories").insert(raw_story_data).execute()
-                if response.data:
-                    stored_count += 1
-
-                    # Optionally auto-score
-                    if auto_score and response.data[0]:
-                        await self._score_story(response.data[0]["id"])
-
+                batch_inserts.append(raw_story_data)
             except Exception as e:
                 errors.append(f"{article.source_name}: {str(e)}")
                 continue
+
+        # 3. Execute Batch Inserts
+        inserted_ids = []
+        for i in range(0, len(batch_inserts), chunk_size):
+            chunk = batch_inserts[i:i + chunk_size]
+            try:
+                response = supabase.table("raw_stories").insert(chunk).execute()
+                if response.data:
+                    stored_count += len(response.data)
+                    inserted_ids.extend(item["id"] for item in response.data if "id" in item)
+            except Exception as e:
+                errors.append(f"Batch insert error: {str(e)}")
+
+        # 4. Optional Auto-score (Concurrent)
+        if auto_score and inserted_ids:
+            # ⚡ Bolt Optimization: Gather concurrent scoring tasks instead of sequential blocking
+            import asyncio
+            score_tasks = [self._score_story(story_id) for story_id in inserted_ids]
+            results = await asyncio.gather(*score_tasks, return_exceptions=True)
+            for res in results:
+                if isinstance(res, Exception):
+                    errors.append(f"Auto-score error: {str(res)}")
 
         return {
             "total_fetched": len(articles),
