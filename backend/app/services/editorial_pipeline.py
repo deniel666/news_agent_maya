@@ -298,14 +298,24 @@ class EditorialPipelineService:
             supabase.table("editorial_reviews").insert(review_data).execute()
 
             # Update stories with scores
+            # ⚡ Bolt Optimization: Batch upsert to prevent N+1 query bottleneck
+            upsert_data = []
+            now_iso = datetime.utcnow().isoformat()
             for rec in result.get("recommendations", []):
-                supabase.table("raw_stories").update({
+                upsert_data.append({
+                    "id": rec["raw_story_id"],
                     "status": "ranked",
                     "score": rec.get("score"),
                     "rank": rec.get("rank"),
                     "rank_reason": rec.get("reason"),
-                    "reviewed_at": datetime.utcnow().isoformat()
-                }).eq("id", rec["raw_story_id"]).execute()
+                    "reviewed_at": now_iso
+                })
+
+            # Upsert in batches of 50
+            for i in range(0, len(upsert_data), 50):
+                batch = upsert_data[i:i + 50]
+                if batch:
+                    supabase.table("raw_stories").upsert(batch).execute()
 
         return result
 
