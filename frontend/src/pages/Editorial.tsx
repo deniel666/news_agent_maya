@@ -631,8 +631,12 @@ function ArrayField({
           >
             {value}
             {editing && (
-              <button onClick={() => removeItem(index)} className="hover:text-white">
-                <X className="w-3 h-3" />
+              <button
+                onClick={() => removeItem(index)}
+                className="hover:text-white focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none rounded-sm"
+                aria-label="Remove item"
+              >
+                <X className="w-3 h-3" aria-hidden="true" />
               </button>
             )}
           </span>
@@ -649,9 +653,10 @@ function ArrayField({
             />
             <button
               onClick={addItem}
-              className="p-1 text-maya-400 hover:text-white"
+              className="p-1 text-maya-400 hover:text-white focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none rounded-full"
+              aria-label="Add item"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         )}
@@ -802,9 +807,10 @@ function GuidelinesTab() {
                     </button>
                     <button
                       onClick={() => handleDelete(guideline.id)}
-                      className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                      className="p-2 text-gray-400 hover:text-red-400 transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none rounded-lg"
+                      aria-label="Delete guideline"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
@@ -1046,9 +1052,10 @@ function StoriesTab({ onStatsChange }: { onStatsChange: () => void }) {
         </select>
         <button
           onClick={loadStories}
-          className="p-2 text-gray-400 hover:text-white"
+          className="p-2 text-gray-400 hover:text-white focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none rounded-lg"
+          aria-label="Refresh stories"
         >
-          <RefreshCw className={cn('w-5 h-5', loading && 'animate-spin')} />
+          <RefreshCw className={cn('w-5 h-5', loading && 'animate-spin')} aria-hidden="true" />
         </button>
       </div>
 
@@ -1143,9 +1150,10 @@ function StoriesTab({ onStatsChange }: { onStatsChange: () => void }) {
                   {story.status !== 'archived' && story.status !== 'promoted' && (
                     <button
                       onClick={() => handleArchive(story.id)}
-                      className="p-2 text-gray-400 hover:text-white"
+                      className="p-2 text-gray-400 hover:text-white focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none rounded-lg"
+                      aria-label="Archive story"
                     >
-                      <Archive className="w-4 h-4" />
+                      <Archive className="w-4 h-4" aria-hidden="true" />
                     </button>
                   )}
                   {story.original_url && (
@@ -1153,9 +1161,10 @@ function StoriesTab({ onStatsChange }: { onStatsChange: () => void }) {
                       href={story.original_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2 text-gray-400 hover:text-white"
+                      className="p-2 text-gray-400 hover:text-white focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none rounded-lg"
+                      aria-label="Open original story in new tab"
                     >
-                      <ExternalLink className="w-4 h-4" />
+                      <ExternalLink className="w-4 h-4" aria-hidden="true" />
                     </a>
                   )}
                 </div>
