@@ -292,37 +292,42 @@ function SourceRow({
         <button
           onClick={handleTest}
           disabled={testing}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
           title="Test source"
+          aria-label="Test source"
         >
           <RefreshCw
+            aria-hidden="true"
             className={cn('w-4 h-4 text-gray-400', testing && 'animate-spin')}
           />
         </button>
         <button
           onClick={onToggle}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-          title={source.enabled ? 'Disable' : 'Enable'}
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
+          title={source.enabled ? 'Disable source' : 'Enable source'}
+          aria-label={source.enabled ? 'Disable source' : 'Enable source'}
         >
           {source.enabled ? (
-            <ToggleRight className="w-5 h-5 text-green-400" />
+            <ToggleRight aria-hidden="true" className="w-5 h-5 text-green-400" />
           ) : (
-            <ToggleLeft className="w-5 h-5 text-gray-500" />
+            <ToggleLeft aria-hidden="true" className="w-5 h-5 text-gray-500" />
           )}
         </button>
         <button
           onClick={onEdit}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-          title="Edit"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
+          title="Edit source"
+          aria-label="Edit source"
         >
-          <Edit2 className="w-4 h-4 text-gray-400" />
+          <Edit2 aria-hidden="true" className="w-4 h-4 text-gray-400" />
         </button>
         <button
           onClick={onDelete}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-          title="Delete"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
+          title="Delete source"
+          aria-label="Delete source"
         >
-          <Trash2 className="w-4 h-4 text-red-400" />
+          <Trash2 aria-hidden="true" className="w-4 h-4 text-red-400" />
         </button>
       </div>
     </div>
