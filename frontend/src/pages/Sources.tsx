@@ -124,21 +124,22 @@ export default function Sources() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-2">
+      <div className="flex gap-2" role="group" aria-label="Filter sources by type">
         {(['all', 'rss', 'telegram', 'twitter'] as const).map((type) => (
           <button
             key={type}
             onClick={() => setFilter(type)}
+            aria-pressed={filter === type}
             className={cn(
-              'px-4 py-2 rounded-lg capitalize flex items-center gap-2',
+              'px-4 py-2 rounded-lg capitalize flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500 transition-colors',
               filter === type
                 ? 'bg-maya-600 text-white'
                 : 'bg-dark-card text-gray-400 hover:text-white'
             )}
           >
-            {type === 'rss' && <Rss className="w-4 h-4" />}
-            {type === 'telegram' && <MessageCircle className="w-4 h-4" />}
-            {type === 'twitter' && <Twitter className="w-4 h-4" />}
+            {type === 'rss' && <Rss className="w-4 h-4" aria-hidden="true" />}
+            {type === 'telegram' && <MessageCircle className="w-4 h-4" aria-hidden="true" />}
+            {type === 'twitter' && <Twitter className="w-4 h-4" aria-hidden="true" />}
             {type === 'all' ? 'All Sources' : type}
             <span className="text-xs bg-dark-bg px-2 py-0.5 rounded-full">
               {type === 'all'
