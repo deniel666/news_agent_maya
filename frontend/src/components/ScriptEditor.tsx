@@ -58,10 +58,11 @@ export default function ScriptEditor({
             <>
               <button
                 onClick={handleReset}
-                className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+                className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
                 title="Reset changes"
+                aria-label="Reset script changes"
               >
-                <RotateCcw className="w-4 h-4 text-gray-400" />
+                <RotateCcw className="w-4 h-4 text-gray-400" aria-hidden="true" />
               </button>
               <button
                 onClick={handleSave}
@@ -74,13 +75,14 @@ export default function ScriptEditor({
           )}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+            className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
             title={isExpanded ? 'Minimize' : 'Expand'}
+            aria-label={isExpanded ? 'Minimize editor' : 'Expand editor'}
           >
             {isExpanded ? (
-              <Minimize2 className="w-4 h-4 text-gray-400" />
+              <Minimize2 className="w-4 h-4 text-gray-400" aria-hidden="true" />
             ) : (
-              <Maximize2 className="w-4 h-4 text-gray-400" />
+              <Maximize2 className="w-4 h-4 text-gray-400" aria-hidden="true" />
             )}
           </button>
         </div>
@@ -102,6 +104,7 @@ export default function ScriptEditor({
             isExpanded ? 'min-h-[calc(100vh-200px)]' : 'min-h-[200px]'
           )}
           placeholder="Enter script content..."
+          aria-label="Script content editor"
         />
       )}
 
