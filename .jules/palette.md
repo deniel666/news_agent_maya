@@ -1,0 +1,3 @@
+## 2024-05-22 - [Properly handling multiple related UI controls]
+**Learning:** For a component like `ScriptEditor` which contains multiple independent editor panels that can each be expanded or minimized independently, having multiple identical screen-reader announcements (e.g. "Expand, button") without context for *what* is expanding can be confusing.
+**Action:** When adding ARIA labels, ensure the context is clear (e.g. by using `aria-labelledby` or adding specific labels), although for the scope of this isolated micro-enhancement adding standard baseline a11y attributes (`aria-label`, `aria-hidden`) is the foundational first step.
