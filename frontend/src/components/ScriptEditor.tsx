@@ -58,29 +58,32 @@ export default function ScriptEditor({
             <>
               <button
                 onClick={handleReset}
-                className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+                className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
                 title="Reset changes"
+                aria-label={`Reset changes for ${title}`}
               >
-                <RotateCcw className="w-4 h-4 text-gray-400" />
+                <RotateCcw className="w-4 h-4 text-gray-400" aria-hidden="true" />
               </button>
               <button
                 onClick={handleSave}
-                className="btn btn-primary text-sm flex items-center gap-1"
+                className="btn btn-primary text-sm flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
               >
-                <Save className="w-3 h-3" />
+                <Save className="w-3 h-3" aria-hidden="true" />
                 Save
               </button>
             </>
           )}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+            className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500"
             title={isExpanded ? 'Minimize' : 'Expand'}
+            aria-label={`${isExpanded ? 'Minimize' : 'Expand'} ${title} editor`}
+            aria-expanded={isExpanded}
           >
             {isExpanded ? (
-              <Minimize2 className="w-4 h-4 text-gray-400" />
+              <Minimize2 className="w-4 h-4 text-gray-400" aria-hidden="true" />
             ) : (
-              <Maximize2 className="w-4 h-4 text-gray-400" />
+              <Maximize2 className="w-4 h-4 text-gray-400" aria-hidden="true" />
             )}
           </button>
         </div>
