@@ -1,0 +1,3 @@
+## 2024-05-26 - Contextual ARIA labels for repeated components
+**Learning:** When identical icon-only buttons (like 'Reset' or 'Expand') appear multiple times on the same page within repeated panels (e.g., ScriptEditor instances for different news types), generic ARIA labels like 'Reset changes' cause confusion for screen reader users as they lack context about which panel the button controls.
+**Action:** Always include dynamic context (e.g., the panel's title prop) in the `aria-label` for repeated interactive elements, and add `aria-hidden="true"` to their internal decorative SVG icons to prevent redundant reading.
