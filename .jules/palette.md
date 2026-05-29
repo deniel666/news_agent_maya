@@ -1,0 +1,3 @@
+## 2024-11-20 - Contextual ARIA labels and Focus Visibility for Repeated Controls
+**Learning:** When using identical repeating controls like icon-only buttons for reset or expand/minimize within multiple panels on the same page, simply relying on the title attribute is insufficient for accessibility. Context must be provided via `aria-label` utilizing the panel's unique identifier (like its title), and keyboard interaction must be explicitly supported via `focus-visible` styling and screen-reader hiding of the icons.
+**Action:** Always include specific contextual data (like `title`) in the `aria-label` and append `focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none` classes to interactive icon-only buttons.
