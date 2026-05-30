@@ -58,29 +58,32 @@ export default function ScriptEditor({
             <>
               <button
                 onClick={handleReset}
-                className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-                title="Reset changes"
+                className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+                title={`Reset changes for ${title}`}
+                aria-label={`Reset changes for ${title}`}
               >
-                <RotateCcw className="w-4 h-4 text-gray-400" />
+                <RotateCcw className="w-4 h-4 text-gray-400" aria-hidden="true" />
               </button>
               <button
                 onClick={handleSave}
                 className="btn btn-primary text-sm flex items-center gap-1"
+                aria-label={`Save changes for ${title}`}
               >
-                <Save className="w-3 h-3" />
+                <Save className="w-3 h-3" aria-hidden="true" />
                 Save
               </button>
             </>
           )}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-            title={isExpanded ? 'Minimize' : 'Expand'}
+            className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+            title={isExpanded ? `Minimize ${title}` : `Expand ${title}`}
+            aria-label={isExpanded ? `Minimize script editor for ${title}` : `Expand script editor for ${title}`}
           >
             {isExpanded ? (
-              <Minimize2 className="w-4 h-4 text-gray-400" />
+              <Minimize2 className="w-4 h-4 text-gray-400" aria-hidden="true" />
             ) : (
-              <Maximize2 className="w-4 h-4 text-gray-400" />
+              <Maximize2 className="w-4 h-4 text-gray-400" aria-hidden="true" />
             )}
           </button>
         </div>
@@ -95,6 +98,7 @@ export default function ScriptEditor({
         <textarea
           value={content}
           onChange={(e) => handleChange(e.target.value)}
+          aria-label={`Script content for ${title}`}
           className={cn(
             'w-full bg-dark-bg text-gray-300 text-sm font-sans p-4 rounded-lg',
             'border border-dark-border focus:border-maya-500 focus:ring-1 focus:ring-maya-500',
