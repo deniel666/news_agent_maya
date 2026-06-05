@@ -1,0 +1,4 @@
+
+## 2024-06-05 - Enhance Script Editor Accessibility
+**Learning:** Icon-only buttons in repeated UI components (like multiple ScriptEditors on a single page) need distinct contextual `aria-label`s (e.g., `aria-label="Expand Local News editor"`) to be intelligible to screen reader users, rather than generic labels like "Expand". Furthermore, interactive SVG icons inside buttons should explicitly have `aria-hidden="true"` to prevent redundant or confusing announcements, and keyboard users need explicit focus indicators like `focus-visible:ring-2 focus-visible:ring-maya-500` for visibility.
+**Action:** Always include contextual information in `aria-label`s for repeated icon-only buttons. Use `aria-hidden="true"` on inner icons, and ensure `focus-visible` classes are present for keyboard focus states.
