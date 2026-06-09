@@ -58,10 +58,11 @@ export default function ScriptEditor({
             <>
               <button
                 onClick={handleReset}
-                className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+                className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
                 title="Reset changes"
+                aria-label={`Reset changes for ${title}`}
               >
-                <RotateCcw className="w-4 h-4 text-gray-400" />
+                <RotateCcw className="w-4 h-4 text-gray-400" aria-hidden="true" />
               </button>
               <button
                 onClick={handleSave}
@@ -74,13 +75,15 @@ export default function ScriptEditor({
           )}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+            className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
             title={isExpanded ? 'Minimize' : 'Expand'}
+            aria-label={isExpanded ? `Minimize script editor for ${title}` : `Expand script editor for ${title}`}
+            aria-expanded={isExpanded}
           >
             {isExpanded ? (
-              <Minimize2 className="w-4 h-4 text-gray-400" />
+              <Minimize2 className="w-4 h-4 text-gray-400" aria-hidden="true" />
             ) : (
-              <Maximize2 className="w-4 h-4 text-gray-400" />
+              <Maximize2 className="w-4 h-4 text-gray-400" aria-hidden="true" />
             )}
           </button>
         </div>
@@ -88,7 +91,11 @@ export default function ScriptEditor({
 
       {/* Editor */}
       {readOnly ? (
-        <pre className="whitespace-pre-wrap text-gray-300 text-sm font-sans bg-dark-bg p-4 rounded-lg min-h-[200px]">
+        <pre
+          className="whitespace-pre-wrap text-gray-300 text-sm font-sans bg-dark-bg p-4 rounded-lg min-h-[200px] focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+          tabIndex={0}
+          aria-label={`Read-only script content for ${title}`}
+        >
           {content || 'No script available'}
         </pre>
       ) : (
@@ -98,10 +105,11 @@ export default function ScriptEditor({
           className={cn(
             'w-full bg-dark-bg text-gray-300 text-sm font-sans p-4 rounded-lg',
             'border border-dark-border focus:border-maya-500 focus:ring-1 focus:ring-maya-500',
-            'resize-none transition-colors',
+            'resize-none transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none',
             isExpanded ? 'min-h-[calc(100vh-200px)]' : 'min-h-[200px]'
           )}
           placeholder="Enter script content..."
+          aria-label={`Script content for ${title}`}
         />
       )}
 
