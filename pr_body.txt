@@ -1,0 +1,14 @@
+💡 What:
+Implemented a `useDebounce` hook and applied it to the `searchQuery` state in the `ContentLibrary` component. The debounced value is now passed to the `useQuery` hook for fetching stories instead of the raw input state.
+
+🎯 Why:
+Directly binding the raw `searchQuery` to the Tanstack Query `queryKey` was causing a new network request to be fired on every single keystroke. This causes excessive backend load and degrades the perceived performance of the frontend UI due to the rapid state thrashing and canceling of in-flight requests.
+
+📊 Impact:
+Significantly reduces the number of API calls made when typing in the search bar. By debouncing with a 500ms delay, typing the word "bitcoin" (7 keystrokes) will now result in 1 API call instead of 7 API calls, reducing backend search load by up to ~85% for typical usage.
+
+🔬 Measurement:
+1. Open the browser DevTools and navigate to the Network tab.
+2. Go to the Content Library page.
+3. Type a multi-letter search term (e.g., "crypto") in the search bar rapidly.
+4. Observe that only one API request to `listStories` is fired after typing pauses, rather than one request per letter.
