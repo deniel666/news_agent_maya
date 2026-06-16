@@ -1,0 +1,15 @@
+### 💡 What
+Added crucial accessibility attributes and keyboard focus styling to the icon-only buttons (Reset, Save, Expand/Minimize) within the `ScriptEditor.tsx` component.
+
+### 🎯 Why
+Icon-only buttons present a major barrier for screen reader users if they lack accessible names. Furthermore, because the `ScriptEditor` is repeated three times on the Briefings page, generic labels (like just "Expand") make it impossible for keyboard users to differentiate *which* editor they are interacting with.
+
+### 📸 Before/After
+- **Before**: Icon-only buttons lacked `aria-label`s, `aria-expanded` states, and relied on generic hover styles that did not highlight clearly during keyboard navigation.
+- **After**: Buttons now have specific `aria-label`s contextualized by the editor's title (e.g., "Expand script editor for Local News"), an `aria-expanded` property, and explicit `focus-visible` Tailwind rings.
+
+### ♿ Accessibility
+- Added `aria-label` to the 'Reset' and 'Expand/Minimize' buttons, interpolating the `title` prop for unique identification.
+- Added `aria-hidden="true"` to the inner `lucide-react` SVG icons.
+- Added `aria-expanded={isExpanded}` to the 'Expand/Minimize' button to semantically communicate its state.
+- Added explicit keyboard focus rings (`focus:outline-none focus-visible:ring-2 focus-visible:ring-maya-500`) to ensure visual compliance for tab navigation.
