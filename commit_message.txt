@@ -1,0 +1,18 @@
+⚡ Bolt: Debounce search input to reduce API calls
+
+### 💡 What
+Implemented a `useDebounce` hook and applied it to the `searchQuery` state in the `ContentLibrary` component. The `debouncedSearch` value, delayed by 300ms, is now passed into the TanStack `useQuery` hook.
+
+### 🎯 Why
+Previously, the `searchQuery` state was tied directly to the input field's `onChange` event and immediately passed as a dependency to the `useQuery` hook. This caused the component to trigger a new API call (`listStories`) on every single keystroke, potentially flooding the backend with redundant requests and slowing down the UI response time for the user.
+
+### 📊 Impact
+* Eliminates redundant network requests while the user is actively typing.
+* Reduces load on the backend server, especially during active search sessions.
+* Optimizes frontend performance by preventing unnecessary React re-renders and React Query refetches.
+
+### 🔬 Measurement
+1. Open the network tab in the browser developer tools.
+2. Navigate to the Content Library page.
+3. Type a word like "Malaysia" quickly into the search bar.
+4. Verify that only one API request is sent (after a 300ms pause in typing), rather than one request per letter.
