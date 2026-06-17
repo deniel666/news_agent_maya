@@ -1,0 +1,3 @@
+## 2024-06-17 - Added Contextual ARIA Labels to Script Editor Buttons
+**Learning:** Found an accessibility issue pattern specific to this app's components: Repeated editor instances (like `ScriptEditor`) contain icon-only buttons ("Reset", "Expand") with generic `title` attributes but no screen-reader-specific context (`aria-label`). Because these appear multiple times on the same page (e.g., inside `ScriptEditorGroup`), a screen reader simply reads "Reset changes" or "Expand" multiple times without clarifying *which* script it applies to.
+**Action:** Always include contextual information (e.g., the `title` prop of the editor component) within the `aria-label` for buttons inside repeated panels, rather than relying solely on generic text or visual context.
