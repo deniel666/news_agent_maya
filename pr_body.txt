@@ -1,0 +1,7 @@
+💡 What: Added `useDebounce` hook to the `searchQuery` state in `ContentLibrary.tsx`.
+
+🎯 Why: To prevent the application from making a network request (via `useQuery`) and causing a re-render on every single keystroke when typing in the search bar.
+
+📊 Impact: Reduces the number of API calls significantly during search input. A user typing a 10-character word previously triggered 10 requests; this optimization batches them into 1 request (assuming continuous typing without a 500ms pause).
+
+🔬 Measurement: Verify by typing rapidly in the `ContentLibrary` search box while observing the Network tab. The `listStories` API call will only execute 500ms after typing ceases, rather than on every keystroke.
