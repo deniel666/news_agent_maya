@@ -1,0 +1,3 @@
+## 2024-06-19 - Interactive Editor Control Accessibility Enhancement
+**Learning:** Icon-only buttons used repeatedly within identical repeated editor panels (like "Local News", "Business News") require highly specific `aria-label` context containing the panel's `title` (e.g., "Reset changes for Local News" instead of just "Reset changes") to ensure screen-reader clarity and avoid repetitive ambiguous controls on the same page.
+**Action:** When adding ARIA labels to identical interactive controls within repeated contexts or groups, always template the title or identifier into the label string. Additionally, apply explicit `focus-visible` styling to all custom interactive controls to provide strong keyboard navigation indicators.
