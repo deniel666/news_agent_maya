@@ -1,0 +1,3 @@
+## 2024-06-21 - Accessible Icon Buttons in Data Rows
+**Learning:** In list or table views with repeating actions (like "Run", "Edit", "Delete" in schedule rows), icon-only buttons often lack accessible names, making them indistinguishable to screen reader users. Additionally, using `title` attributes alone is insufficient for screen readers or keyboard navigation.
+**Action:** When creating icon-only action buttons, always explicitly add an `aria-label` describing the action (e.g., "Delete schedule"), attach `aria-hidden="true"` to the inner SVG icon to prevent redundant announcements, and include explicit focus indicators like `focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none` to support keyboard navigation.

@@ -267,35 +267,39 @@ function ScheduleRow({
         )}
         <button
           onClick={onRunNow}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           title="Run now"
+          aria-label="Run schedule now"
         >
-          <Play className="w-4 h-4 text-green-400" />
+          <Play className="w-4 h-4 text-green-400" aria-hidden="true" />
         </button>
         <button
           onClick={onToggle}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           title={schedule.enabled ? 'Disable' : 'Enable'}
+          aria-label={schedule.enabled ? 'Disable schedule' : 'Enable schedule'}
         >
           {schedule.enabled ? (
-            <ToggleRight className="w-5 h-5 text-green-400" />
+            <ToggleRight className="w-5 h-5 text-green-400" aria-hidden="true" />
           ) : (
-            <ToggleLeft className="w-5 h-5 text-gray-500" />
+            <ToggleLeft className="w-5 h-5 text-gray-500" aria-hidden="true" />
           )}
         </button>
         <button
           onClick={onEdit}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           title="Edit"
+          aria-label="Edit schedule"
         >
-          <Edit2 className="w-4 h-4 text-gray-400" />
+          <Edit2 className="w-4 h-4 text-gray-400" aria-hidden="true" />
         </button>
         <button
           onClick={onDelete}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           title="Delete"
+          aria-label="Delete schedule"
         >
-          <Trash2 className="w-4 h-4 text-red-400" />
+          <Trash2 className="w-4 h-4 text-red-400" aria-hidden="true" />
         </button>
       </div>
     </div>
