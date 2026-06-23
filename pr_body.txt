@@ -1,0 +1,8 @@
+💡 What: Added contextual `aria-label`s to the interactive elements (buttons and textarea) in the `ScriptEditor` component. Added `aria-expanded` to the toggle button and `aria-hidden="true"` to inner SVG icons. Also added keyboard focus styles (`focus-visible:ring-2`) to all buttons.
+🎯 Why: To improve keyboard navigation and screen reader support for the script editor, specifically addressing the issue of duplicate, context-less "Expand" or "Reset" buttons when multiple editors are rendered on the same page.
+📸 Before/After: Visual change is minimal (only focus states), but semantic HTML structure is vastly improved for assistive technologies.
+♿ Accessibility:
+- Screen readers now announce "Expand editor for [Title]" instead of just "Expand"
+- Screen readers now skip redundant SVG icons
+- Toggle button state is correctly announced via `aria-expanded`
+- Keyboard users can clearly see which button has focus via Tailwind focus rings
