@@ -1,3 +1,3 @@
-## 2026-02-09 - Sequential I/O in Aggregators
-**Learning:** The `NewsAggregatorService` was fetching RSS and Nitter feeds sequentially, which is a major bottleneck as these are I/O bound operations. This pattern often goes unnoticed in initial implementations but scales poorly.
-**Action:** Always use `asyncio.gather` for independent I/O bound tasks in aggregators.
+## 2025-02-12 - Debounced Search Query Re-Renders
+**Learning:** In the `ContentLibrary.tsx` component, tying a rapid-firing state like `searchQuery` directly to a `useQuery` hook dependency without debouncing results in excessive network calls on every keystroke, leading to degraded application performance and backend stress.
+**Action:** Always implement a `useDebounce` hook (e.g., `frontend/src/hooks/useDebounce.ts`) for text input states that trigger network requests, and pass the debounced value into the `useQuery` dependency array.
