@@ -1,0 +1,13 @@
+💡 **What:** Added comprehensive ARIA labels and focus visibility styles to the interactive elements within the `ScriptEditor` component.
+
+🎯 **Why:** The icon-only buttons (Reset, Save, Expand/Minimize) lacked accessible names, making their purpose ambiguous to screen reader users. The main text area also lacked context. Additionally, keyboard navigation lacked clear visual indicators for these controls.
+
+📸 **Before/After:**
+*   **Before:** `<button onClick={handleReset} title="Reset changes"><RotateCcw /></button>`
+*   **After:** `<button onClick={handleReset} title="Reset changes" aria-label="Reset changes for [Title]" className="... focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"><RotateCcw aria-hidden="true" /></button>`
+
+♿ **Accessibility:**
+*   Added dynamically scoped `aria-label`s to the reset button, expand toggle, and the main `textarea`.
+*   Added `aria-expanded` state tracking to the expand/minimize toggle.
+*   Attached `aria-hidden="true"` to all purely decorative inner SVG icons to prevent redundant or confusing screen reader announcements.
+*   Applied Tailwind classes (`focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none`) to ensure keyboard users have clear visual focus indicators on all interactive buttons.
