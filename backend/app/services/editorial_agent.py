@@ -38,12 +38,21 @@ class EditorialAgent:
     """Agent for reviewing and ranking news stories based on editorial guidelines."""
 
     def __init__(self):
-        self.llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            temperature=0.3,
-            api_key=settings.openai_api_key,
-        )
+        self._llm: Optional[ChatOpenAI] = None
         self.workflow = self._build_workflow()
+
+    @property
+    def llm(self) -> ChatOpenAI:
+        """Create the OpenAI client only when an editorial job actually needs it."""
+        if self._llm is None:
+            if not settings.openai_api_key:
+                raise RuntimeError("OPENAI_API_KEY is required to run the editorial agent")
+            self._llm = ChatOpenAI(
+                model="gpt-4o-mini",
+                temperature=0.3,
+                api_key=settings.openai_api_key,
+            )
+        return self._llm
 
     def _build_workflow(self) -> StateGraph:
         """Build the LangGraph workflow for editorial review."""
