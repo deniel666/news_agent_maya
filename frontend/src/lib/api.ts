@@ -1,10 +1,14 @@
 import axios from 'axios'
 
 const trimTrailingSlashes = (value: string) => value.replace(/\/+$/, '')
+const RAILWAY_API_BASE = 'https://newsagentmaya-production.up.railway.app/api/v1'
+const RAILWAY_WS_BASE = 'wss://newsagentmaya-production.up.railway.app/api/v1/ws'
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL
   ? trimTrailingSlashes(import.meta.env.VITE_API_BASE_URL)
-  : '/api/v1'
+  : import.meta.env.PROD
+    ? RAILWAY_API_BASE
+    : '/api/v1'
 
 export function getWebSocketUrl(threadId: string): string {
   const encodedThreadId = encodeURIComponent(threadId)
@@ -12,6 +16,10 @@ export function getWebSocketUrl(threadId: string): string {
 
   if (configuredBase) {
     return `${trimTrailingSlashes(configuredBase)}/${encodedThreadId}`
+  }
+
+  if (import.meta.env.PROD) {
+    return `${RAILWAY_WS_BASE}/${encodedThreadId}`
   }
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
