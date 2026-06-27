@@ -62,14 +62,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+def get_cors_origins() -> list[str]:
+    """Return unique browser origins allowed to call the API."""
+    origins = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://news-agent-maya.vercel.app",
+        settings.frontend_url,
+    ]
+    return list(dict.fromkeys(origin.rstrip("/") for origin in origins if origin))
+
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        settings.frontend_url,
-    ],
+    allow_origins=get_cors_origins(),
+    allow_origin_regex=r"https://news-agent-maya(?:-[a-z0-9-]+)?-denielgmailcoms-projects\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
