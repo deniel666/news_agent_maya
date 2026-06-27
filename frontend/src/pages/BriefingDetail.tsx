@@ -16,7 +16,7 @@ import {
   Video,
   Share2,
 } from 'lucide-react'
-import { formatDateTime, getStatusLabel, cn } from '../lib/utils'
+import { cn } from '../lib/utils'
 import { useState } from 'react'
 
 export default function BriefingDetail() {

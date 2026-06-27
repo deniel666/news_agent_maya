@@ -8,7 +8,6 @@ import {
 import {
   FileText,
   Video,
-  Share2,
   Clock,
   Play,
   CheckCircle,

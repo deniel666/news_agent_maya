@@ -1,14 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Scale,
   FileText,
   Building2,
   ListChecks,
   Play,
-  Star,
   ArrowUp,
-  ArrowDown,
-  ChevronRight,
   Plus,
   Trash2,
   Edit2,
@@ -16,7 +13,6 @@ import {
   X,
   BarChart3,
   Clock,
-  Filter,
   RefreshCw,
   Archive,
   ExternalLink,
@@ -28,7 +24,6 @@ import {
   updateBrandProfile,
   listGuidelines,
   createGuideline,
-  updateGuideline,
   deleteGuideline,
   toggleGuideline,
   importDefaultGuidelines,
@@ -957,11 +952,7 @@ function StoriesTab({ onStatsChange }: { onStatsChange: () => void }) {
     sortBy: 'created_at',
   })
 
-  useEffect(() => {
-    loadStories()
-  }, [filter])
-
-  async function loadStories() {
+  const loadStories = useCallback(async () => {
     setLoading(true)
     try {
       const data = await listRawStories({
@@ -976,7 +967,11 @@ function StoriesTab({ onStatsChange }: { onStatsChange: () => void }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [filter])
+
+  useEffect(() => {
+    loadStories()
+  }, [loadStories])
 
   async function handleScore(storyId: string) {
     try {

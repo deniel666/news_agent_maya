@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { getWebSocketUrl } from '../lib/api'
 
 interface WebSocketMessage {
   type: string
@@ -30,15 +31,12 @@ export function useWebSocket({
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectAttemptsRef = useRef(0)
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const connect = useCallback(() => {
     if (!threadId) return
 
-    // Determine WebSocket URL
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const host = window.location.host
-    const wsUrl = `${protocol}//${host}/api/v1/ws/${threadId}`
+    const wsUrl = getWebSocketUrl(threadId)
 
     try {
       const ws = new WebSocket(wsUrl)
@@ -138,9 +136,9 @@ export function useWebSocket({
 
 // Hook for subscribing to all approval notifications
 export function useApprovalNotifications(
-  onNewApproval?: (threadId: string, approvalType: string) => void
+  _onNewApproval?: (threadId: string, approvalType: string) => void
 ) {
-  const [approvals, setApprovals] = useState<Array<{
+  const [approvals] = useState<Array<{
     threadId: string
     approvalType: string
     timestamp: Date

@@ -9,22 +9,17 @@ import {
   Star,
   ExternalLink,
   Trash2,
-  Plus,
   CheckCircle,
   Clock,
   XCircle,
-  Play,
   Download,
   Copy,
-  Edit2,
 } from 'lucide-react'
 import { cn, formatDateTime } from '../lib/utils'
 import {
   getStory,
   updateStory,
   deleteVideo,
-  createPublishRecord,
-  getStoryPublishRecords,
   toggleFeatured,
 } from '../lib/api'
 import ScriptEditor from '../components/ScriptEditor'
@@ -249,7 +244,7 @@ export default function StoryDetail() {
 
       {/* Publishing Tab */}
       {activeTab === 'publishing' && (
-        <PublishingTab story={story} storyId={storyId!} />
+        <PublishingTab story={story} />
       )}
     </div>
   )
@@ -296,8 +291,6 @@ function VideoCard({
   video: any
   onDelete: () => void
 }) {
-  const [showControls, setShowControls] = useState(false)
-
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-3">
@@ -315,8 +308,6 @@ function VideoCard({
       {/* Video Player */}
       <div
         className="aspect-[9/16] bg-black rounded-lg overflow-hidden relative max-h-[400px] mx-auto"
-        onMouseEnter={() => setShowControls(true)}
-        onMouseLeave={() => setShowControls(false)}
       >
         <video
           src={video.video_url}
@@ -355,20 +346,7 @@ function VideoCard({
   )
 }
 
-function PublishingTab({ story, storyId }: { story: any; storyId: string }) {
-  const queryClient = useQueryClient()
-  const [selectedVideo, setSelectedVideo] = useState<string | null>(null)
-  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null)
-
-  const createPublishMutation = useMutation({
-    mutationFn: (data: any) => createPublishRecord(storyId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['story', storyId] })
-      setSelectedVideo(null)
-      setSelectedPlatform(null)
-    },
-  })
-
+function PublishingTab({ story }: { story: any }) {
   const publishedPlatforms = new Set(
     story.publish_records
       ?.filter((r: any) => r.status === 'published')
