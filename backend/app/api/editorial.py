@@ -1,6 +1,6 @@
 """Editorial API endpoints for story curation and ranking."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -57,7 +57,7 @@ async def create_or_update_brand_profile(profile: BrandProfileCreate):
         "differentiators": profile.differentiators,
         "competitors": profile.competitors,
         "ai_prompt_context": profile.ai_prompt_context or _generate_ai_context(profile),
-        "updated_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
     if existing.data:
@@ -125,7 +125,7 @@ async def update_guideline(guideline_id: UUID, update: EditorialGuidelineUpdate)
     if not data:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    data["updated_at"] = datetime.utcnow().isoformat()
+    data["updated_at"] = datetime.now(timezone.utc).isoformat()
     response = supabase.table("editorial_guidelines").update(data).eq("id", str(guideline_id)).execute()
     return response.data[0] if response.data else None
 
@@ -147,7 +147,7 @@ async def toggle_guideline(guideline_id: UUID):
     new_enabled = not current.data["enabled"]
     response = supabase.table("editorial_guidelines").update({
         "enabled": new_enabled,
-        "updated_at": datetime.utcnow().isoformat()
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }).eq("id", str(guideline_id)).execute()
 
     return response.data[0] if response.data else None
@@ -348,7 +348,7 @@ async def _score_story_background(story_id: str):
         "score": result.get("score"),
         "rank": result.get("rank"),
         "rank_reason": result.get("reason"),
-        "reviewed_at": datetime.utcnow().isoformat()
+        "reviewed_at": datetime.now(timezone.utc).isoformat()
     }).eq("id", story_id).execute()
 
 
@@ -390,7 +390,7 @@ async def score_raw_story(story_id: UUID):
         "score": result.get("score"),
         "rank": result.get("rank"),
         "rank_reason": result.get("reason"),
-        "reviewed_at": datetime.utcnow().isoformat()
+        "reviewed_at": datetime.now(timezone.utc).isoformat()
     }).eq("id", str(story_id)).execute()
 
     return update_response.data[0] if update_response.data else None
@@ -484,7 +484,7 @@ async def run_editorial_review(
     background_tasks: BackgroundTasks = None
 ):
     """Run a new editorial review for pending stories."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if week_number is None:
         week_number = now.isocalendar()[1]
     if year is None:
@@ -564,13 +564,14 @@ async def _run_review_background(
 ):
     """Background task to run editorial review."""
     try:
-        # Update stories to reviewing status
+        # ⚡ Bolt Optimization: Chunk database updates to reduce I/O bottlenecks
         story_ids = [s["id"] for s in stories]
-        for sid in story_ids:
+        for i in range(0, len(story_ids), 50):
+            chunk = story_ids[i:i + 50]
             supabase.table("raw_stories").update({
                 "status": "reviewing",
                 "editorial_review_id": review_id
-            }).eq("id", sid).execute()
+            }).in_("id", chunk).execute()
 
         # Run the editorial agent
         result = await editorial_agent.run_review(
@@ -583,13 +584,14 @@ async def _run_review_background(
 
         if result.get("success"):
             # Update each story with its score
+            now_iso = datetime.now(timezone.utc).isoformat()
             for rec in result.get("recommendations", []):
                 supabase.table("raw_stories").update({
                     "status": "ranked",
                     "score": rec.get("score"),
                     "rank": rec.get("rank"),
                     "rank_reason": rec.get("reason"),
-                    "reviewed_at": datetime.utcnow().isoformat()
+                    "reviewed_at": now_iso
                 }).eq("id", rec["raw_story_id"]).execute()
 
             # Update review record
@@ -604,7 +606,7 @@ async def _run_review_background(
                 "medium_count": result["stats"]["medium"],
                 "low_count": result["stats"]["low"],
                 "rejected_count": result["stats"]["rejected"],
-                "completed_at": datetime.utcnow().isoformat()
+                "completed_at": datetime.now(timezone.utc).isoformat()
             }).eq("id", review_id).execute()
 
             return result
@@ -640,7 +642,7 @@ async def get_editorial_stats():
         raw_count = supabase.table("raw_stories").select("id", count="exact").execute()
         pending_count = supabase.table("raw_stories").select("id", count="exact").eq("status", "pending").execute()
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         week_ago = now - timedelta(days=7)
 
         reviewed_week = supabase.table("raw_stories").select("id", count="exact").gte("reviewed_at", week_ago.isoformat()).execute()
