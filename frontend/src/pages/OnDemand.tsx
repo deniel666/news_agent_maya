@@ -17,9 +17,6 @@ import { cn, formatDateTime } from '../lib/utils'
 import {
   generateFromArticle,
   listOnDemandJobs,
-  getOnDemandJob,
-  approveOnDemandScript,
-  approveOnDemandVideo,
   deleteOnDemandJob,
 } from '../lib/api'
 

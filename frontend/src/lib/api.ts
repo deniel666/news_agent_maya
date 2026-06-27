@@ -1,6 +1,22 @@
 import axios from 'axios'
 
-const API_BASE = '/api/v1'
+const trimTrailingSlashes = (value: string) => value.replace(/\/+$/, '')
+
+export const API_BASE = import.meta.env.VITE_API_BASE_URL
+  ? trimTrailingSlashes(import.meta.env.VITE_API_BASE_URL)
+  : '/api/v1'
+
+export function getWebSocketUrl(threadId: string): string {
+  const encodedThreadId = encodeURIComponent(threadId)
+  const configuredBase = import.meta.env.VITE_WS_BASE_URL
+
+  if (configuredBase) {
+    return `${trimTrailingSlashes(configuredBase)}/${encodedThreadId}`
+  }
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${protocol}//${window.location.host}/api/v1/ws/${encodedThreadId}`
+}
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -416,16 +432,19 @@ export interface PublishRecord {
 
 export interface ContentStats {
   total_stories: number
-  draft_stories: number
-  script_ready_stories: number
-  video_ready_stories: number
-  published_stories: number
+  stories_by_status: Record<string, number>
+  stories_by_type: Record<string, number>
   total_videos: number
-  english_videos: number
-  malay_videos: number
+  videos_by_language: Record<string, number>
   total_published: number
+  published_by_platform: Record<string, number>
   this_week: number
   this_month: number
+}
+
+export interface StoryWithAssets extends Story {
+  videos: VideoAsset[]
+  publish_records: PublishRecord[]
 }
 
 export async function listStories(params?: {
@@ -436,7 +455,7 @@ export async function listStories(params?: {
   search?: string
   limit?: number
   offset?: number
-}): Promise<Story[]> {
+}): Promise<StoryWithAssets[]> {
   const { data } = await api.get('/content/stories', { params })
   return data
 }
@@ -454,7 +473,7 @@ export async function createStory(story: {
   return data
 }
 
-export async function getStory(storyId: string): Promise<Story> {
+export async function getStory(storyId: string): Promise<StoryWithAssets> {
   const { data } = await api.get(`/content/stories/${storyId}`)
   return data
 }
@@ -483,7 +502,7 @@ export async function deleteStory(storyId: string) {
 }
 
 export async function toggleFeatured(storyId: string) {
-  const { data } = await api.post(`/content/stories/${storyId}/toggle-featured`)
+  const { data } = await api.post(`/content/stories/${storyId}/feature`)
   return data
 }
 
@@ -497,7 +516,7 @@ export async function getContentStats(): Promise<ContentStats> {
   return data
 }
 
-export async function getAllTags(): Promise<string[]> {
+export async function getAllTags(): Promise<{ tags: string[] }> {
   const { data } = await api.get('/content/tags')
   return data
 }
@@ -517,15 +536,14 @@ export async function getStoryPublishRecords(storyId: string): Promise<PublishRe
   return data
 }
 
-export async function createPublishRecord(record: {
-  story_id: string
+export async function createPublishRecord(storyId: string, record: {
   video_id: string
   platform: string
   language: string
   caption?: string
   scheduled_at?: string
 }) {
-  const { data } = await api.post('/content/publish-records', record)
+  const { data } = await api.post(`/content/stories/${storyId}/publish`, record)
   return data
 }
 

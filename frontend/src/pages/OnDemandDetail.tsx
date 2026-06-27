@@ -10,7 +10,6 @@ import {
   FileText,
   ExternalLink,
   RefreshCw,
-  Share2,
 } from 'lucide-react'
 import { cn, formatDateTime } from '../lib/utils'
 import {

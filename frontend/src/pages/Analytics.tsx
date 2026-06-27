@@ -1,11 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import {
-  BarChart3,
   TrendingUp,
   Clock,
   CheckCircle,
   Video,
-  Share2,
   Calendar,
 } from 'lucide-react'
 import { formatDate } from '../lib/utils'

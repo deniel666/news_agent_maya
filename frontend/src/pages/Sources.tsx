@@ -4,7 +4,6 @@ import {
   Plus,
   Trash2,
   Edit2,
-  ExternalLink,
   ToggleLeft,
   ToggleRight,
   Rss,

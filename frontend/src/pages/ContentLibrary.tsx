@@ -5,20 +5,16 @@ import { useDebounce } from '../hooks/useDebounce'
 import {
   Plus,
   Search,
-  Filter,
   Grid,
   List,
   Star,
   Video,
   FileText,
-  ExternalLink,
   MoreVertical,
   Trash2,
   Archive,
   Eye,
   CheckCircle,
-  Clock,
-  XCircle,
 } from 'lucide-react'
 import { cn, formatDateTime } from '../lib/utils'
 import {
@@ -64,6 +60,7 @@ export default function ContentLibrary() {
     queryKey: ['all-tags'],
     queryFn: getAllTags,
   })
+  const tags = tagsData?.tags ?? []
 
   const deleteMutation = useMutation({
     mutationFn: deleteStory,
@@ -200,10 +197,10 @@ export default function ContentLibrary() {
         </div>
 
         {/* Tags */}
-        {tagsData?.tags?.length > 0 && (
+        {tags.length > 0 && (
           <div className="flex gap-2 flex-wrap mt-4 pt-4 border-t border-dark-border">
             <span className="text-sm text-gray-400 py-1">Tags:</span>
-            {tagsData.tags.map((tag: string) => (
+            {tags.map((tag: string) => (
               <button
                 key={tag}
                 onClick={() =>
