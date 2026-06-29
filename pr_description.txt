@@ -1,0 +1,16 @@
+**What:**
+Enhanced the accessibility and usability of the "View Mode" (Grid/List) toggle buttons in the `ContentLibrary` page.
+
+**Why:**
+The previous implementation lacked semantic grouping, state indication for screen readers, keyboard focus visibility, and mouse tooltips. These additions ensure users navigating via keyboard or screen reader can understand and interact with the toggles as a unified control group.
+
+**Before/After:**
+*   **Before:** Generic `div` wrapper with visually-styled buttons relying solely on color changes for active state.
+*   **After:** Wrapper uses `role="group"` with `aria-label`. Buttons use `aria-pressed`, `aria-label`, `title` attributes, and `focus-visible` styling. Inner decorative SVGs are explicitly hidden from screen readers.
+
+**Accessibility:**
+*   Added `role="group"` to the container.
+*   Added explicit `aria-label`s to the container and buttons.
+*   Added `aria-pressed` dynamic attributes to communicate the active view mode.
+*   Added `aria-hidden="true"` to inner decorative SVG icons.
+*   Added `focus-visible:ring-2` styling for keyboard navigation clarity.
