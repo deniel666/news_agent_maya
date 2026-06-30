@@ -291,37 +291,42 @@ function SourceRow({
         <button
           onClick={handleTest}
           disabled={testing}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-          title="Test source"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+          title={`Test source ${source.name}`}
+          aria-label={`Test source ${source.name}`}
         >
           <RefreshCw
             className={cn('w-4 h-4 text-gray-400', testing && 'animate-spin')}
+            aria-hidden="true"
           />
         </button>
         <button
           onClick={onToggle}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-          title={source.enabled ? 'Disable' : 'Enable'}
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+          title={source.enabled ? `Disable ${source.name}` : `Enable ${source.name}`}
+          aria-label={source.enabled ? `Disable ${source.name}` : `Enable ${source.name}`}
         >
           {source.enabled ? (
-            <ToggleRight className="w-5 h-5 text-green-400" />
+            <ToggleRight className="w-5 h-5 text-green-400" aria-hidden="true" />
           ) : (
-            <ToggleLeft className="w-5 h-5 text-gray-500" />
+            <ToggleLeft className="w-5 h-5 text-gray-500" aria-hidden="true" />
           )}
         </button>
         <button
           onClick={onEdit}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-          title="Edit"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+          title={`Edit ${source.name}`}
+          aria-label={`Edit ${source.name}`}
         >
-          <Edit2 className="w-4 h-4 text-gray-400" />
+          <Edit2 className="w-4 h-4 text-gray-400" aria-hidden="true" />
         </button>
         <button
           onClick={onDelete}
-          className="p-2 hover:bg-dark-bg rounded-lg transition-colors"
-          title="Delete"
+          className="p-2 hover:bg-dark-bg rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+          title={`Delete ${source.name}`}
+          aria-label={`Delete ${source.name}`}
         >
-          <Trash2 className="w-4 h-4 text-red-400" />
+          <Trash2 className="w-4 h-4 text-red-400" aria-hidden="true" />
         </button>
       </div>
     </div>
