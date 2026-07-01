@@ -1,0 +1,3 @@
+## 2024-07-01 - Accessible Toggle Button Groups
+**Learning:** Found a recurring pattern of custom toggle button groups (e.g., status filters, view modes) in the `ContentLibrary` that lack semantic grouping and state indicators. Without these, screen reader users cannot easily understand the relationship between the buttons or determine which option is currently active.
+**Action:** When implementing custom toggle groups using raw `<div>` and `<button>` elements, always wrap the container with `role="group"` and an `aria-label`, and ensure the individual buttons use `aria-pressed` to semantically indicate their active state, alongside robust focus-visible styling for keyboard users.

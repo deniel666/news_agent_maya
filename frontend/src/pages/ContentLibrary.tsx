@@ -154,14 +154,15 @@ export default function ContentLibrary() {
           </div>
 
           {/* Status Filter */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap" role="group" aria-label="Filter stories by status">
             {(['all', 'draft', 'script_ready', 'video_ready', 'published', 'archived'] as const).map(
               (status) => (
                 <button
                   key={status}
                   onClick={() => setStatusFilter(status)}
+                  aria-pressed={statusFilter === status}
                   className={cn(
-                    'px-3 py-2 rounded-lg text-sm capitalize',
+                    'px-3 py-2 rounded-lg text-sm capitalize focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none',
                     statusFilter === status
                       ? 'bg-maya-600 text-white'
                       : 'bg-dark-bg text-gray-400 hover:text-white'
@@ -174,24 +175,28 @@ export default function ContentLibrary() {
           </div>
 
           {/* View Mode */}
-          <div className="flex gap-1 bg-dark-bg rounded-lg p-1">
+          <div className="flex gap-1 bg-dark-bg rounded-lg p-1" role="group" aria-label="View mode">
             <button
               onClick={() => setViewMode('grid')}
+              aria-pressed={viewMode === 'grid'}
+              aria-label="Grid view"
               className={cn(
-                'p-2 rounded',
-                viewMode === 'grid' ? 'bg-dark-card text-white' : 'text-gray-500'
+                'p-2 rounded focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none',
+                viewMode === 'grid' ? 'bg-dark-card text-white' : 'text-gray-500 hover:text-white'
               )}
             >
-              <Grid className="w-4 h-4" />
+              <Grid className="w-4 h-4" aria-hidden="true" />
             </button>
             <button
               onClick={() => setViewMode('list')}
+              aria-pressed={viewMode === 'list'}
+              aria-label="List view"
               className={cn(
-                'p-2 rounded',
-                viewMode === 'list' ? 'bg-dark-card text-white' : 'text-gray-500'
+                'p-2 rounded focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none',
+                viewMode === 'list' ? 'bg-dark-card text-white' : 'text-gray-500 hover:text-white'
               )}
             >
-              <List className="w-4 h-4" />
+              <List className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         </div>
