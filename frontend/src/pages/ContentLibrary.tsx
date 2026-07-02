@@ -365,9 +365,11 @@ function StoryCard({
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="p-1 hover:bg-dark-bg rounded"
+              className="p-1 hover:bg-dark-bg rounded focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+              aria-label={`More options for ${story.title}`}
+              aria-expanded={showMenu}
             >
-              <MoreVertical className="w-4 h-4 text-gray-500" />
+              <MoreVertical className="w-4 h-4 text-gray-500" aria-hidden="true" />
             </button>
 
             {showMenu && (
@@ -502,15 +504,17 @@ function StoryRow({
       <div className="flex items-center gap-1">
         <Link
           to={`/content/${story.id}`}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           title="View"
+          aria-label={`View ${story.title}`}
         >
-          <Eye className="w-4 h-4 text-gray-400" />
+          <Eye className="w-4 h-4 text-gray-400" aria-hidden="true" />
         </Link>
         <button
           onClick={onToggleFeatured}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           title={story.featured ? 'Unfeature' : 'Feature'}
+          aria-label={`${story.featured ? 'Unfeature' : 'Feature'} ${story.title}`}
         >
           <Star
             className={cn(
@@ -519,21 +523,24 @@ function StoryRow({
                 ? 'text-yellow-400 fill-yellow-400'
                 : 'text-gray-400'
             )}
+            aria-hidden="true"
           />
         </button>
         <button
           onClick={onArchive}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           title="Archive"
+          aria-label={`Archive ${story.title}`}
         >
-          <Archive className="w-4 h-4 text-gray-400" />
+          <Archive className="w-4 h-4 text-gray-400" aria-hidden="true" />
         </button>
         <button
           onClick={onDelete}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           title="Delete"
+          aria-label={`Delete ${story.title}`}
         >
-          <Trash2 className="w-4 h-4 text-red-400" />
+          <Trash2 className="w-4 h-4 text-red-400" aria-hidden="true" />
         </button>
       </div>
     </div>
