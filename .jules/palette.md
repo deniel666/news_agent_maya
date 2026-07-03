@@ -1,0 +1,3 @@
+## 2024-05-24 - Provide Context for Screen Readers on Repeated List Item Actions
+**Learning:** When using identical icon-only action buttons (e.g., 'Edit', 'Delete', 'Toggle') across multiple items in a list view (like the sources list), generic `aria-label`s or `title` attributes are insufficient for screen reader users as they lack context about *which* item the action applies to.
+**Action:** Always include specific descriptive text within the `aria-label` that dynamically incorporates the item's unique identifier (e.g., `aria-label="Edit ${source.name}"`) rather than relying solely on generic titles.
