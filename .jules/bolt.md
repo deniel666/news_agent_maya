@@ -1,3 +1,6 @@
 ## 2026-02-09 - Sequential I/O in Aggregators
 **Learning:** The `NewsAggregatorService` was fetching RSS and Nitter feeds sequentially, which is a major bottleneck as these are I/O bound operations. This pattern often goes unnoticed in initial implementations but scales poorly.
 **Action:** Always use `asyncio.gather` for independent I/O bound tasks in aggregators.
+## 2026-02-12 - N+1 Queries in Editorial Background Task
+**Learning:** The `_run_review_background` function in `backend/app/api/editorial.py` was updating the status of `raw_stories` iteratively using a `for` loop, making sequential `.eq("id", sid).execute()` API calls to Supabase for every story being reviewed. This caused an N+1 query problem, slowing down the review process drastically when dealing with large numbers of aggregated news stories. Also learned that when using Supabase's Python client `.in_()` filter for bulk updates, we must chunk the ID list (e.g. 50 items per chunk) to avoid "URI too long" errors because PostgREST implements `.in_()` filters as URL query parameters.
+**Action:** Always batch homogenous updates using `.in_()` rather than looping over IDs. Ensure to chunk large arrays when doing `.in_()` lookups or updates with Supabase to prevent HTTP request length errors.
