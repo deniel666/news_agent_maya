@@ -97,9 +97,9 @@ export default function ContentLibrary() {
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="btn btn-primary flex items-center gap-2"
+          className="btn btn-primary flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4" aria-hidden="true" />
           New Story
         </button>
       </div>
@@ -143,29 +143,34 @@ export default function ContentLibrary() {
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
+              aria-hidden="true"
+            />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search stories..."
-              className="input w-full pl-10"
+              className="input w-full pl-10 focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+              aria-label="Search stories"
             />
           </div>
 
           {/* Status Filter */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap" role="group" aria-label="Story status filter">
             {(['all', 'draft', 'script_ready', 'video_ready', 'published', 'archived'] as const).map(
               (status) => (
                 <button
                   key={status}
                   onClick={() => setStatusFilter(status)}
                   className={cn(
-                    'px-3 py-2 rounded-lg text-sm capitalize',
+                    'px-3 py-2 rounded-lg text-sm capitalize focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none',
                     statusFilter === status
                       ? 'bg-maya-600 text-white'
                       : 'bg-dark-bg text-gray-400 hover:text-white'
                   )}
+                  aria-pressed={statusFilter === status}
                 >
                   {status.replace('_', ' ')}
                 </button>
@@ -221,11 +226,12 @@ export default function ContentLibrary() {
                   setSelectedTag(selectedTag === tag ? null : tag)
                 }
                 className={cn(
-                  'px-3 py-1 rounded-full text-sm',
+                  'px-3 py-1 rounded-full text-sm focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none',
                   selectedTag === tag
                     ? 'bg-maya-600 text-white'
                     : 'bg-dark-bg text-gray-400 hover:text-white'
                 )}
+                aria-pressed={selectedTag === tag}
               >
                 #{tag}
               </button>
@@ -346,13 +352,13 @@ function StoryCard({
             className="w-full h-full object-cover rounded-lg"
           />
         ) : (
-          <Video className="w-12 h-12 text-gray-600" />
+          <Video className="w-12 h-12 text-gray-600" aria-hidden="true" />
         )}
 
         {/* Video count badge */}
         {story.video_count > 0 && (
           <div className="absolute bottom-2 right-2 bg-black/70 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
-            <Video className="w-3 h-3" />
+            <Video className="w-3 h-3" aria-hidden="true" />
             {story.video_count}
           </div>
         )}
@@ -360,7 +366,7 @@ function StoryCard({
         {/* Featured star */}
         {story.featured && (
           <div className="absolute top-2 left-2">
-            <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+            <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" aria-hidden="true" />
           </div>
         )}
       </div>
@@ -370,7 +376,7 @@ function StoryCard({
         <div className="flex items-start justify-between gap-2">
           <Link
             to={`/content/${story.id}`}
-            className="font-semibold text-white hover:text-maya-400 line-clamp-2"
+            className="font-semibold text-white hover:text-maya-400 line-clamp-2 rounded focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           >
             {story.title}
           </Link>
@@ -379,18 +385,22 @@ function StoryCard({
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="p-1 hover:bg-dark-bg rounded"
+              className="p-1 hover:bg-dark-bg rounded focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+              aria-label={`Open actions for ${story.title}`}
+              aria-expanded={showMenu}
+              title="Story actions"
             >
-              <MoreVertical className="w-4 h-4 text-gray-500" />
+              <MoreVertical className="w-4 h-4 text-gray-500" aria-hidden="true" />
             </button>
 
             {showMenu && (
               <div className="absolute right-0 top-full mt-1 bg-dark-card border border-dark-border rounded-lg shadow-xl z-10 min-w-[150px]">
                 <Link
                   to={`/content/${story.id}`}
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-dark-bg text-gray-300 text-sm"
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-dark-bg text-gray-300 text-sm focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+                  aria-label={`View ${story.title}`}
                 >
-                  <Eye className="w-4 h-4" />
+                  <Eye className="w-4 h-4" aria-hidden="true" />
                   View
                 </Link>
                 <button
@@ -398,9 +408,10 @@ function StoryCard({
                     onToggleFeatured()
                     setShowMenu(false)
                   }}
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-dark-bg text-gray-300 text-sm w-full"
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-dark-bg text-gray-300 text-sm w-full focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+                  aria-label={`${story.featured ? 'Unfeature' : 'Feature'} ${story.title}`}
                 >
-                  <Star className="w-4 h-4" />
+                  <Star className="w-4 h-4" aria-hidden="true" />
                   {story.featured ? 'Unfeature' : 'Feature'}
                 </button>
                 <button
@@ -408,9 +419,10 @@ function StoryCard({
                     onArchive()
                     setShowMenu(false)
                   }}
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-dark-bg text-gray-300 text-sm w-full"
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-dark-bg text-gray-300 text-sm w-full focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+                  aria-label={`Archive ${story.title}`}
                 >
-                  <Archive className="w-4 h-4" />
+                  <Archive className="w-4 h-4" aria-hidden="true" />
                   Archive
                 </button>
                 <button
@@ -418,9 +430,10 @@ function StoryCard({
                     onDelete()
                     setShowMenu(false)
                   }}
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-dark-bg text-red-400 text-sm w-full"
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-dark-bg text-red-400 text-sm w-full focus-visible:ring-2 focus-visible:ring-red-500 focus:outline-none"
+                  aria-label={`Delete ${story.title}`}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4" aria-hidden="true" />
                   Delete
                 </button>
               </div>
@@ -479,7 +492,7 @@ function StoryRow({
             className="w-full h-full object-cover rounded"
           />
         ) : (
-          <Video className="w-6 h-6 text-gray-600" />
+          <Video className="w-6 h-6 text-gray-600" aria-hidden="true" />
         )}
       </div>
 
@@ -487,11 +500,11 @@ function StoryRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           {story.featured && (
-            <Star className="w-4 h-4 text-yellow-400 fill-yellow-400 flex-shrink-0" />
+            <Star className="w-4 h-4 text-yellow-400 fill-yellow-400 flex-shrink-0" aria-hidden="true" />
           )}
           <Link
             to={`/content/${story.id}`}
-            className="font-medium text-white hover:text-maya-400 truncate"
+            className="font-medium text-white hover:text-maya-400 truncate rounded focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           >
             {story.title}
           </Link>
@@ -516,15 +529,18 @@ function StoryRow({
       <div className="flex items-center gap-1">
         <Link
           to={`/content/${story.id}`}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           title="View"
+          aria-label={`View ${story.title}`}
         >
-          <Eye className="w-4 h-4 text-gray-400" />
+          <Eye className="w-4 h-4 text-gray-400" aria-hidden="true" />
         </Link>
         <button
           onClick={onToggleFeatured}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           title={story.featured ? 'Unfeature' : 'Feature'}
+          aria-label={`${story.featured ? 'Unfeature' : 'Feature'} ${story.title}`}
+          aria-pressed={story.featured}
         >
           <Star
             className={cn(
@@ -533,21 +549,24 @@ function StoryRow({
                 ? 'text-yellow-400 fill-yellow-400'
                 : 'text-gray-400'
             )}
+            aria-hidden="true"
           />
         </button>
         <button
           onClick={onArchive}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           title="Archive"
+          aria-label={`Archive ${story.title}`}
         >
-          <Archive className="w-4 h-4 text-gray-400" />
+          <Archive className="w-4 h-4 text-gray-400" aria-hidden="true" />
         </button>
         <button
           onClick={onDelete}
-          className="p-2 hover:bg-dark-bg rounded-lg"
+          className="p-2 hover:bg-dark-bg rounded-lg focus-visible:ring-2 focus-visible:ring-red-500 focus:outline-none"
           title="Delete"
+          aria-label={`Delete ${story.title}`}
         >
-          <Trash2 className="w-4 h-4 text-red-400" />
+          <Trash2 className="w-4 h-4 text-red-400" aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -573,7 +592,7 @@ function StatusBadge({ status, small }: { status: string; small?: boolean }) {
         small ? 'px-2 py-0.5 text-xs' : 'px-2 py-1 text-xs'
       )}
     >
-      <Icon className={small ? 'w-3 h-3' : 'w-3 h-3'} />
+      <Icon className={small ? 'w-3 h-3' : 'w-3 h-3'} aria-hidden="true" />
       {label}
     </span>
   )

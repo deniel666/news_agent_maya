@@ -108,13 +108,14 @@ export default function Editorial() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'flex items-center gap-2 px-4 py-3 border-b-2 transition-colors',
+                'flex items-center gap-2 px-4 py-3 border-b-2 transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none',
                 activeTab === tab.id
                   ? 'border-maya-500 text-maya-400'
                   : 'border-transparent text-gray-400 hover:text-white'
               )}
+              aria-pressed={activeTab === tab.id}
             >
-              <tab.icon className="w-4 h-4" />
+              <tab.icon className="w-4 h-4" aria-hidden="true" />
               {tab.label}
             </button>
           ))}
@@ -189,24 +190,26 @@ function OverviewTab({ stats, loading }: { stats: EditorialStats | null; loading
           <button
             onClick={handleAggregate}
             disabled={aggregating}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-blue-400 focus:outline-none"
+            aria-busy={aggregating}
           >
             {aggregating ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
+              <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
             ) : (
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4" aria-hidden="true" />
             )}
             Aggregate News
           </button>
           <button
             onClick={handleFullCycle}
             disabled={runningCycle || aggregating}
-            className="flex items-center gap-2 px-4 py-2 bg-maya-600 text-white rounded-lg hover:bg-maya-700 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-maya-600 text-white rounded-lg hover:bg-maya-700 transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+            aria-busy={runningCycle}
           >
             {runningCycle ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
+              <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
             ) : (
-              <Play className="w-4 h-4" />
+              <Play className="w-4 h-4" aria-hidden="true" />
             )}
             Run Full Editorial Cycle
           </button>
@@ -415,25 +418,26 @@ function BrandTab() {
         {!editing ? (
           <button
             onClick={() => setEditing(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-maya-600 text-white rounded-lg hover:bg-maya-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-maya-600 text-white rounded-lg hover:bg-maya-700 transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           >
-            <Edit2 className="w-4 h-4" />
+            <Edit2 className="w-4 h-4" aria-hidden="true" />
             Edit Profile
           </button>
         ) : (
           <div className="flex gap-2">
             <button
               onClick={() => setEditing(false)}
-              className="px-4 py-2 border border-dark-border text-gray-300 rounded-lg hover:bg-dark-border transition-colors"
+              className="px-4 py-2 border border-dark-border text-gray-300 rounded-lg hover:bg-dark-border transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-green-400 focus:outline-none"
+              aria-busy={saving}
             >
-              {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              {saving ? <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Check className="w-4 h-4" aria-hidden="true" />}
               Save
             </button>
           </div>
@@ -626,8 +630,12 @@ function ArrayField({
           >
             {value}
             {editing && (
-              <button onClick={() => removeItem(index)} className="hover:text-white">
-                <X className="w-3 h-3" />
+              <button
+                onClick={() => removeItem(index)}
+                className="rounded hover:text-white focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+                aria-label={`Remove ${value} from ${label}`}
+              >
+                <X className="w-3 h-3" aria-hidden="true" />
               </button>
             )}
           </span>
@@ -644,9 +652,10 @@ function ArrayField({
             />
             <button
               onClick={addItem}
-              className="p-1 text-maya-400 hover:text-white"
+              className="p-1 text-maya-400 hover:text-white rounded focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+              aria-label={`Add item to ${label}`}
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         )}
@@ -741,17 +750,18 @@ function GuidelinesTab() {
             <button
               onClick={handleImportDefaults}
               disabled={importing}
-              className="flex items-center gap-2 px-4 py-2 border border-dark-border text-gray-300 rounded-lg hover:bg-dark-border transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 border border-dark-border text-gray-300 rounded-lg hover:bg-dark-border transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+              aria-busy={importing}
             >
-              {importing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              {importing ? <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Plus className="w-4 h-4" aria-hidden="true" />}
               Import Defaults
             </button>
           )}
           <button
             onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-maya-600 text-white rounded-lg hover:bg-maya-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-maya-600 text-white rounded-lg hover:bg-maya-700 transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4" aria-hidden="true" />
             Add Guideline
           </button>
         </div>
@@ -787,19 +797,21 @@ function GuidelinesTab() {
                     <button
                       onClick={() => handleToggle(guideline.id)}
                       className={cn(
-                        'px-3 py-1 text-xs rounded-full transition-colors',
+                        'px-3 py-1 text-xs rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none',
                         guideline.enabled
                           ? 'bg-green-500/20 text-green-400'
                           : 'bg-gray-500/20 text-gray-400'
                       )}
+                      aria-pressed={guideline.enabled}
                     >
                       {guideline.enabled ? 'Enabled' : 'Disabled'}
                     </button>
                     <button
                       onClick={() => handleDelete(guideline.id)}
-                      className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                      className="p-2 text-gray-400 hover:text-red-400 transition-colors rounded focus-visible:ring-2 focus-visible:ring-red-500 focus:outline-none"
+                      aria-label={`Delete guideline ${guideline.name}`}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
@@ -1120,27 +1132,28 @@ function StoriesTab({ onStatsChange }: { onStatsChange: () => void }) {
                   {story.status === 'pending' && (
                     <button
                       onClick={() => handleScore(story.id)}
-                      className="flex items-center gap-1 px-3 py-1 bg-maya-600 text-white text-sm rounded-lg hover:bg-maya-700"
+                      className="flex items-center gap-1 px-3 py-1 bg-maya-600 text-white text-sm rounded-lg hover:bg-maya-700 focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
                     >
-                      <Scale className="w-4 h-4" />
+                      <Scale className="w-4 h-4" aria-hidden="true" />
                       Score
                     </button>
                   )}
                   {story.rank && story.rank !== 'rejected' && story.status !== 'promoted' && (
                     <button
                       onClick={() => handlePromote(story.id)}
-                      className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+                      className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 focus-visible:ring-2 focus-visible:ring-green-400 focus:outline-none"
                     >
-                      <ArrowUp className="w-4 h-4" />
+                      <ArrowUp className="w-4 h-4" aria-hidden="true" />
                       Promote
                     </button>
                   )}
                   {story.status !== 'archived' && story.status !== 'promoted' && (
                     <button
                       onClick={() => handleArchive(story.id)}
-                      className="p-2 text-gray-400 hover:text-white"
+                      className="p-2 text-gray-400 hover:text-white rounded focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+                      aria-label={`Archive ${story.title}`}
                     >
-                      <Archive className="w-4 h-4" />
+                      <Archive className="w-4 h-4" aria-hidden="true" />
                     </button>
                   )}
                   {story.original_url && (
@@ -1148,9 +1161,10 @@ function StoriesTab({ onStatsChange }: { onStatsChange: () => void }) {
                       href={story.original_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2 text-gray-400 hover:text-white"
+                      className="p-2 text-gray-400 hover:text-white rounded focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+                      aria-label={`Open original story for ${story.title}`}
                     >
-                      <ExternalLink className="w-4 h-4" />
+                      <ExternalLink className="w-4 h-4" aria-hidden="true" />
                     </a>
                   )}
                 </div>

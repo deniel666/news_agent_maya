@@ -10,6 +10,7 @@ import {
   Video,
   Clock,
   Play,
+  Loader2,
   CheckCircle,
   AlertCircle,
 } from 'lucide-react'
@@ -61,9 +62,14 @@ export default function Dashboard() {
         <button
           onClick={handleCreateBriefing}
           disabled={isCreating}
-          className="btn btn-primary flex items-center gap-2"
+          className="btn btn-primary flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          aria-busy={isCreating}
         >
-          <Play className="w-4 h-4" />
+          {isCreating ? (
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <Play className="w-4 h-4" aria-hidden="true" />
+          )}
           {isCreating ? 'Starting...' : 'Start New Briefing'}
         </button>
       </div>
@@ -148,7 +154,7 @@ function StatCard({
         <div
           className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colors[color]} flex items-center justify-center`}
         >
-          <Icon className="w-6 h-6 text-white" />
+          <Icon className="w-6 h-6 text-white" aria-hidden="true" />
         </div>
         <div>
           <p className="text-2xl font-bold text-white">{value}</p>
@@ -184,6 +190,7 @@ function WeekCard({ week }: { week: any }) {
               ? 'text-gray-500'
               : 'text-yellow-400'
           }`}
+          aria-hidden="true"
         />
       </div>
       <p className="text-sm text-gray-400">{week.year}</p>
@@ -198,11 +205,11 @@ function ActivityItem({ item }: { item: any }) {
   return (
     <Link
       to={`/briefings/${item.thread_id}`}
-      className="flex items-center justify-between p-4 bg-dark-bg rounded-lg hover:bg-dark-border transition-colors"
+      className="flex items-center justify-between p-4 bg-dark-bg rounded-lg hover:bg-dark-border transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
     >
       <div className="flex items-center gap-4">
         <div className="w-10 h-10 bg-maya-900/50 rounded-lg flex items-center justify-center">
-          <FileText className="w-5 h-5 text-maya-400" />
+          <FileText className="w-5 h-5 text-maya-400" aria-hidden="true" />
         </div>
         <div>
           <p className="font-medium text-white">

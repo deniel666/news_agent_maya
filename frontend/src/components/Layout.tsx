@@ -37,13 +37,22 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen flex">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-maya-600 focus:px-4 focus:py-2 focus:text-white focus:outline-none focus:ring-2 focus:ring-maya-300"
+      >
+        Skip to main content
+      </a>
       {/* Sidebar */}
       <aside className="w-64 bg-dark-card border-r border-dark-border flex flex-col">
         {/* Logo */}
         <div className="p-6 border-b border-dark-border">
-          <Link to="/" className="flex items-center gap-3">
+          <Link
+            to="/"
+            className="flex items-center gap-3 rounded-lg focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none"
+          >
             <div className="w-10 h-10 bg-gradient-to-br from-maya-500 to-maya-700 rounded-xl flex items-center justify-center">
-              <Tv className="w-6 h-6 text-white" />
+              <Tv className="w-6 h-6 text-white" aria-hidden="true" />
             </div>
             <div>
               <h1 className="text-lg font-bold text-white">Maya</h1>
@@ -53,7 +62,7 @@ export default function Layout({ children }: LayoutProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4">
+        <nav className="flex-1 p-4" aria-label="Primary navigation">
           <ul className="space-y-2">
             {navigation.map((item) => {
               const isActive = location.pathname === item.href ||
@@ -64,13 +73,14 @@ export default function Layout({ children }: LayoutProps) {
                   <Link
                     to={item.href}
                     className={cn(
-                      'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
+                      'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none',
                       isActive
                         ? 'bg-maya-600 text-white'
                         : 'text-gray-400 hover:text-white hover:bg-dark-border'
                     )}
+                    aria-current={isActive ? 'page' : undefined}
                   >
-                    <item.icon className="w-5 h-5" />
+                    <item.icon className="w-5 h-5" aria-hidden="true" />
                     {item.name}
                   </Link>
                 </li>
@@ -89,7 +99,7 @@ export default function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main id="main-content" className="flex-1 overflow-auto">
         <div className="p-8">
           {children}
         </div>
