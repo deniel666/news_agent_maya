@@ -1,0 +1,16 @@
+**What**
+Improved the accessibility and interactive feedback of the View Mode toggle group (Grid/List) in the Content Library.
+
+**Why**
+The toggle buttons were icon-only, lacking screen reader context (no ARIA labels or pressed state) and visual feedback for keyboard navigation (no explicit focus states). Grouping them semantically also improves context for assistive technologies.
+
+**Before/After**
+*   **Before:** Icon-only buttons relying on visual cues. No semantic grouping or state indication. No explicit focus outline for keyboard users.
+*   **After:** Buttons wrapped in a `role="group"`. Added `aria-label`, `title`, and `aria-pressed` for semantic clarity. Icons marked as `aria-hidden`. Added `focus-visible:ring-2` for keyboard accessibility and hover transitions for better mouse interaction.
+
+**Accessibility**
+*   Added `role="group"` and `aria-label="View mode"` to the container.
+*   Added `aria-label` and `title` to each button.
+*   Added `aria-pressed` to indicate active state.
+*   Added `aria-hidden="true"` to SVG icons.
+*   Added explicit focus states (`focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none`).
