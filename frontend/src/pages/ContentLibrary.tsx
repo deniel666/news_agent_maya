@@ -174,24 +174,38 @@ export default function ContentLibrary() {
           </div>
 
           {/* View Mode */}
-          <div className="flex gap-1 bg-dark-bg rounded-lg p-1">
+          <div
+            className="flex gap-1 bg-dark-bg rounded-lg p-1"
+            role="group"
+            aria-label="View mode"
+          >
             <button
               onClick={() => setViewMode('grid')}
               className={cn(
-                'p-2 rounded',
-                viewMode === 'grid' ? 'bg-dark-card text-white' : 'text-gray-500'
+                'p-2 rounded transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none',
+                viewMode === 'grid'
+                  ? 'bg-dark-card text-white'
+                  : 'text-gray-500 hover:text-white'
               )}
+              aria-label="Grid view"
+              aria-pressed={viewMode === 'grid'}
+              title="Grid view"
             >
-              <Grid className="w-4 h-4" />
+              <Grid className="w-4 h-4" aria-hidden="true" />
             </button>
             <button
               onClick={() => setViewMode('list')}
               className={cn(
-                'p-2 rounded',
-                viewMode === 'list' ? 'bg-dark-card text-white' : 'text-gray-500'
+                'p-2 rounded transition-colors focus-visible:ring-2 focus-visible:ring-maya-500 focus:outline-none',
+                viewMode === 'list'
+                  ? 'bg-dark-card text-white'
+                  : 'text-gray-500 hover:text-white'
               )}
+              aria-label="List view"
+              aria-pressed={viewMode === 'list'}
+              title="List view"
             >
-              <List className="w-4 h-4" />
+              <List className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         </div>

@@ -564,13 +564,15 @@ async def _run_review_background(
 ):
     """Background task to run editorial review."""
     try:
-        # Update stories to reviewing status
-        story_ids = [s["id"] for s in stories]
-        for sid in story_ids:
+        # Batch identical status updates to avoid one Supabase request per story.
+        story_ids = [str(s["id"]) for s in stories]
+        chunk_size = 50
+        for i in range(0, len(story_ids), chunk_size):
+            chunk = story_ids[i:i + chunk_size]
             supabase.table("raw_stories").update({
                 "status": "reviewing",
                 "editorial_review_id": review_id
-            }).eq("id", sid).execute()
+            }).in_("id", chunk).execute()
 
         # Run the editorial agent
         result = await editorial_agent.run_review(

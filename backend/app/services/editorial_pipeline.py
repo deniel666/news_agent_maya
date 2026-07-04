@@ -55,15 +55,27 @@ class EditorialPipelineService:
         stored_count = 0
         skipped_count = 0
         errors = []
+        existing_urls = set()
+        article_urls = [article.url for article in articles if article.url]
+
+        # Fetch known URLs in chunks so duplicate checks do not become an
+        # N+1 Supabase request pattern during large aggregations.
+        for i in range(0, len(article_urls), 50):
+            chunk = article_urls[i:i + 50]
+            existing = supabase.table("raw_stories").select("original_url").in_(
+                "original_url", chunk
+            ).execute()
+            existing_urls.update(
+                row["original_url"]
+                for row in (existing.data or [])
+                if row.get("original_url")
+            )
 
         for article in articles:
             try:
                 # Check for duplicates (by URL or title+source)
                 if article.url:
-                    existing = supabase.table("raw_stories").select("id").eq(
-                        "original_url", article.url
-                    ).execute()
-                    if existing.data:
+                    if article.url in existing_urls:
                         skipped_count += 1
                         continue
 
@@ -96,6 +108,8 @@ class EditorialPipelineService:
                 response = supabase.table("raw_stories").insert(raw_story_data).execute()
                 if response.data:
                     stored_count += 1
+                    if article.url:
+                        existing_urls.add(article.url)
 
                     # Optionally auto-score
                     if auto_score and response.data[0]:
